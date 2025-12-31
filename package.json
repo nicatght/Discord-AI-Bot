@@ -1,0 +1,33 @@
+{
+  "name": "discord-ai-bot",
+  "version": "1.0.0",
+  "description": "Discord AI Bot with Gemini Flash for RAG",
+  "main": "dist/bot/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/bot/index.js",
+    "dev": "ts-node src/bot/index.ts",
+    "watch": "tsc --watch"
+  },
+  "keywords": [
+    "discord",
+    "bot",
+    "ai",
+    "gemini",
+    "rag"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "discord.js": "^14.14.1",
+    "@google/generative-ai": "^0.21.0",
+    "dotenv": "^16.3.1",
+    "axios": "^1.6.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.5",
+    "typescript": "^5.3.3",
+    "ts-node": "^10.9.2"
+  }
+}
+
