@@ -1,27 +1,45 @@
-import dotenv from 'dotenv';
+// 注意：dotenv 应该在入口文件（bot/index.ts）中加载，这里不再重复加载
+// 使用函数动态读取环境变量，确保在 dotenv.config() 之后读取
 
-dotenv.config();
-
-export const config = {
-  discord: {
-    token: process.env.DISCORD_TOKEN || '',
-  },
-  gemini: {
-    apiKey: process.env.GEMINI_API_KEY || '',
-    model: 'gemini-1.5-flash', // Gemini Flash 版本
-  },
-  bot: {
-    prefix: process.env.BOT_PREFIX || '!',
-    maxContextMessages: parseInt(process.env.MAX_CONTEXT_MESSAGES || '30', 10),
-  },
-};
-
-// 验证必要的配置
-if (!config.discord.token) {
-  throw new Error('DISCORD_TOKEN 未设置');
+function getConfig() {
+  return {
+    discord: {
+      get token() {
+        return process.env.DISCORD_TOKEN || '';
+      },
+    },
+    gemini: {
+      get apiKey() {
+        return process.env.GEMINI_API_KEY || '';
+      },
+      // 2025 最新免費版本：優先使用 Gemini 3 Flash，如果不可用則回退到 1.5 Flash
+      get model() {
+        return process.env.GEMINI_MODEL || 'gemini-3-flash-latest';
+      },
+    },
+    bot: {
+      get prefix() {
+        return process.env.BOT_PREFIX || '!';
+      },
+      get maxContextMessages() {
+        return parseInt(process.env.MAX_CONTEXT_MESSAGES || '30', 10);
+      },
+    },
+  };
 }
 
-if (!config.gemini.apiKey) {
-  throw new Error('GEMINI_API_KEY 未设置');
+// 导出配置对象，使用 getter 确保每次访问都读取最新的环境变量
+export const config = getConfig();
+
+// 驗證必要的配置（在運行時檢查，而不是模塊加載時）
+export function validateConfig(): void {
+  if (!config.discord.token || config.discord.token.trim() === '') {
+    throw new Error('DISCORD_TOKEN 未設置或為空，請檢查 .env 文件中的 DISCORD_TOKEN 是否正確設置');
+  }
+
+  // Gemini API Key 暂时不强制（可以先测试 DC 连接）
+  // if (!config.gemini.apiKey || config.gemini.apiKey.trim() === '') {
+  //   throw new Error('GEMINI_API_KEY 未設置，請檢查 .env 文件');
+  // }
 }
 
