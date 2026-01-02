@@ -1,10 +1,10 @@
-import { Collection, ChatInputCommandInteraction, SlashCommandBuilder, SlashCommandSubcommandsOnlyBuilder } from "discord.js";
+import { Collection, ChatInputCommandInteraction, SlashCommandBuilder, SlashCommandSubcommandsOnlyBuilder, SlashCommandOptionsOnlyBuilder } from "discord.js";
 import * as ping from "./ping";
 import * as hsr from "./hongkaiStarRail";
 
-// 指令介面（支援一般指令和含子指令的指令）
+// 指令介面（支援一般指令、含子指令的指令、含選項的指令）
 export interface Command {
-  data: SlashCommandBuilder | SlashCommandSubcommandsOnlyBuilder;
+  data: SlashCommandBuilder | SlashCommandSubcommandsOnlyBuilder | SlashCommandOptionsOnlyBuilder;
   execute: (interaction: ChatInputCommandInteraction) => Promise<void>;
 }
 

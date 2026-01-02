@@ -1,27 +1,55 @@
-import { Interaction } from "discord.js";
+import { Interaction, MessageFlags } from "discord.js";
 import { commands } from "../commands";
+import * as hsrCommand from "../commands/hongkaiStarRail";
 
 export async function commandHandler(interaction: Interaction): Promise<void> {
-  // 只處理 slash command
-  if (!interaction.isChatInputCommand()) return;
-
-  const command = commands.get(interaction.commandName);
-
-  if (!command) {
-    console.error(`[ERROR] Command not found: ${interaction.commandName}`);
-    return;
-  }
-
   try {
-    await command.execute(interaction);
-  } catch (error) {
-    console.error(`[ERROR] Command execution failed:`, error);
+    // Slash Command
+    if (interaction.isChatInputCommand()) {
+      const command = commands.get(interaction.commandName);
 
-    // 如果還沒回覆，送出錯誤訊息
-    if (interaction.replied || interaction.deferred) {
-      await interaction.followUp({ content: "Command failed!", ephemeral: true });
-    } else {
-      await interaction.reply({ content: "Command failed!", ephemeral: true });
+      if (!command) {
+        console.error(`[ERROR] Command not found: ${interaction.commandName}`);
+        return;
+      }
+
+      await command.execute(interaction);
+      return;
+    }
+
+    // Select Menu
+    if (interaction.isStringSelectMenu()) {
+      if (interaction.customId.startsWith("hsr_")) {
+        await hsrCommand.handleSelectMenu(interaction);
+      }
+      return;
+    }
+
+    // Modal Submit
+    if (interaction.isModalSubmit()) {
+      if (interaction.customId.startsWith("hsr_")) {
+        await hsrCommand.handleModalSubmit(interaction);
+      }
+      return;
+    }
+
+    // Button
+    if (interaction.isButton()) {
+      if (interaction.customId.startsWith("hsr_")) {
+        await hsrCommand.handleButton(interaction);
+      }
+      return;
+    }
+  } catch (error) {
+    console.error(`[ERROR] Interaction failed:`, error);
+
+    // 錯誤處理
+    if (interaction.isRepliable()) {
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp({ content: "Command failed!", flags: MessageFlags.Ephemeral });
+      } else {
+        await interaction.reply({ content: "Command failed!", flags: MessageFlags.Ephemeral });
+      }
     }
   }
 }

@@ -103,3 +103,11 @@ export function deleteHsrUid(discordUserId: string): boolean {
   delete uids[discordUserId];
   return saveJson(HSR_UID_FILE, uids);
 }
+
+/**
+ * 取得所有 HSR UID 註冊資料
+ * @returns { discordUserId: hsrUid } 的 Map
+ */
+export function getAllHsrUids(): Record<string, string> {
+  return loadJson<Record<string, string>>(HSR_UID_FILE, {});
+}
