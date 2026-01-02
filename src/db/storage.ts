@@ -1,11 +1,12 @@
 /**
- * 簡易 JSON 儲存服務
+ * JSON 儲存服務
  */
 
 import * as fs from "fs";
 import * as path from "path";
+import { fetchPlayerInfo } from "../services/hsrService";
 
-// 資料存放在 src/db/data/ 底下
+// 資料路徑
 const DATA_DIR = path.join(__dirname, "data");
 
 // 確保 data 目錄存在
@@ -56,8 +57,49 @@ export function getHsrUid(discordUserId: string): string | null {
   return uids[discordUserId] || null;
 }
 
-export function setHsrUid(discordUserId: string, hsrUid: string): boolean {
+/**
+ * 設定 HSR UID（先驗證 UID 是否存在）
+ * @returns { success: true, nickname } 儲存成功，{ success: false, error } 失敗
+ */
+export async function setHsrUid(
+  discordUserId: string,
+  hsrUid: string
+): Promise<{ success: boolean; nickname?: string; error?: string }> {
+  // 先檢查是否已經綁定過
+  const existingUids = loadJson<Record<string, string>>(HSR_UID_FILE, {});
+  if (existingUids[discordUserId]) {
+    return { success: false, error: "你已經綁定過 UID 了，請先使用 `/honkai-star-rail uid delete` 刪除舊的 UID" };
+  }
+
+  // 驗證 UID 是否有效
+  const player = await fetchPlayerInfo(hsrUid);
+
+  if (!player) {
+    return { success: false, error: "UID 不存在或無法查詢" };
+  }
+
+  // 儲存 uid
   const uids = loadJson<Record<string, string>>(HSR_UID_FILE, {});
   uids[discordUserId] = hsrUid;
+
+  if (saveJson(HSR_UID_FILE, uids)) {
+    return { success: true, nickname: player.nickname };
+  } else {
+    return { success: false, error: "儲存失敗" };
+  }
+}
+
+/**
+ * 刪除 HSR UID
+ * @returns true 刪除成功，false 沒有資料可刪除
+ */
+export function deleteHsrUid(discordUserId: string): boolean {
+  const uids = loadJson<Record<string, string>>(HSR_UID_FILE, {});
+
+  if (!uids[discordUserId]) {
+    return false;
+  }
+
+  delete uids[discordUserId];
   return saveJson(HSR_UID_FILE, uids);
 }

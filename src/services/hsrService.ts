@@ -37,20 +37,21 @@ export async function fetchPlayerInfo(uid: string): Promise<HsrPlayerInfo | null
     }
 
     // 取得角色資料
-    const characters: HsrCharacter[] = user.characters.map((char) => ({
-      name: char.name.get("cht") || char.name.get("en") || "Unknown",
+    const userCharacters = user.getCharacters();
+    const characters: HsrCharacter[] = userCharacters.map((char) => ({
+      name: char.characterData.name.get("cht") || char.characterData.name.get("en") || "Unknown",
       level: char.level,
-      rarity: char.rarity,
-      element: char.element?.name.get("cht") || char.element?.name.get("en") || "Unknown",
-      lightCone: char.lightCone?.name.get("cht") || char.lightCone?.name.get("en") || null,
+      rarity: char.characterData.stars,
+      element: char.characterData.combatType.name.get("cht") || char.characterData.combatType.name.get("en") || "Unknown",
+      lightCone: char.lightCone?.lightConeData.name.get("cht") || char.lightCone?.lightConeData.name.get("en") || null,
     }));
 
     return {
       uid: uid,
       nickname: user.nickname,
       level: user.level,
-      worldLevel: user.worldLevel,
-      profilePictureUrl: user.profilePictureIcon.imageUrl,
+      worldLevel: user.equilibriumLevel,
+      profilePictureUrl: user.icon.icon.url,
       signature: user.signature || "",
       characters,
     };
