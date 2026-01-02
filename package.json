@@ -19,15 +19,15 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "discord.js": "^14.14.1",
     "@google/generative-ai": "^0.21.0",
+    "axios": "^1.6.2",
+    "discord.js": "^14.14.1",
     "dotenv": "^16.3.1",
-    "axios": "^1.6.2"
+    "starrail.js": "^1.9.6"
   },
   "devDependencies": {
     "@types/node": "^20.10.5",
-    "typescript": "^5.3.3",
-    "ts-node": "^10.9.2"
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
   }
 }
-

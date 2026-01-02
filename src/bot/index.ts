@@ -14,15 +14,15 @@ const client = new Client({
 });
 
 client.once("clientReady", () => {
-  console.log(`Bot is ready! Logged in as ${client.user?.tag}`);
+  console.log(`啟動成功 以${client.user?.tag}登入`);
 });
 
 client.on("error", (error) => {
-  console.error("[ERROR] Discord client error:", error);
+  console.error("[ERROR] dc 機器人:", error);
 });
 
 client.on("warn", (warning) => {
-  console.warn("[WARN] Discord warning:", warning);
+  console.warn("[WARN] dc 機器人:", warning);
 });
 
 client.on("messageCreate", async (message) => {
@@ -31,12 +31,12 @@ client.on("messageCreate", async (message) => {
   await messageHandler(message);
 });
 
-// 處理 Slash Commands
+// 處理 Slash 指令
 client.on("interactionCreate", async (interaction) => {
   await commandHandler(interaction);
 });
 
-// 註冊 Slash 指令 (我覺得比較好用)
+// 向伺服器註冊 Slash 指令 (這也是指定伺服器的原因)
 async function registerCommands(): Promise<void> {
   const rest = new REST().setToken(config.discord.token);
   const commandData = commands.map((cmd) => cmd.data.toJSON());
@@ -44,33 +44,37 @@ async function registerCommands(): Promise<void> {
 
   if (!guildId) {
     console.error("[ERROR] DISCORD_GUILD_ID not set in .env");
-    console.error("   Right-click your server -> Copy Server ID");
+    console.error("   1. 開啟 discord 開發者模式");
+    console.error("   2. 右鍵點擊你的伺服器圖示");
+    console.error("   3. 點擊複製伺服器 ID");
+    console.error("   4. 將複製的ID放在 .env 的 DISCORD_GUILD_ID 裡");
+    
     return;
   }
 
   try {
-    console.log("[INFO] Registering slash commands to guild...");
+    console.log("[INFO] 註冊 / 指令 到 伺服器...");
 
-    // Guild Command - 只在指定伺服器生效，但立即可用
     await rest.put(
       Routes.applicationGuildCommands(client.user!.id, guildId),
       { body: commandData }
     );
 
-    console.log("[INFO] Slash commands registered successfully!");
+    console.log("[INFO] 成功註冊指令!");
   } catch (error) {
-    console.error("[ERROR] Failed to register commands:", error);
+    console.error("[ERROR] 指令註冊錯誤:", error);
   }
 }
 
-// 啟動 Bot 連線
+// Bot 連線
 export async function startBot(): Promise<void> {
   try {
-    await client.login(config.discord.token);
 
-    // 登入成功後註冊指令
+    await client.login(config.discord.token);
     await registerCommands();
+
   } catch (error: any) {
+    // 錯誤回饋
     console.error("[ERROR] Login failed:", error.message);
 
     if (
