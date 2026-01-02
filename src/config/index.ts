@@ -7,6 +7,9 @@ function getConfig() {
       get token() {
         return process.env.DISCORD_TOKEN || '';
       },
+      get guildId() {
+        return process.env.DISCORD_GUILD_ID || '';
+      },
     },
     gemini: {
       get apiKey() {

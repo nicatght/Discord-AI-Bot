@@ -1,5 +1,7 @@
-import { Client, GatewayIntentBits } from "discord.js";
+import { Client, GatewayIntentBits, REST, Routes } from "discord.js";
 import { messageHandler } from "./handlers/messageHandler";
+import { commandHandler } from "./handlers/commandHandler";
+import { commands } from "./commands";
 import { config } from "../config";
 
 // 建立 Discord client
@@ -26,14 +28,48 @@ client.on("warn", (warning) => {
 client.on("messageCreate", async (message) => {
   // 忽略機器人的訊息
   if (message.author.bot) return;
-
   await messageHandler(message);
 });
+
+// 處理 Slash Commands
+client.on("interactionCreate", async (interaction) => {
+  await commandHandler(interaction);
+});
+
+// 註冊 Slash 指令 (我覺得比較好用)
+async function registerCommands(): Promise<void> {
+  const rest = new REST().setToken(config.discord.token);
+  const commandData = commands.map((cmd) => cmd.data.toJSON());
+  const guildId = config.discord.guildId;
+
+  if (!guildId) {
+    console.error("[ERROR] DISCORD_GUILD_ID not set in .env");
+    console.error("   Right-click your server -> Copy Server ID");
+    return;
+  }
+
+  try {
+    console.log("[INFO] Registering slash commands to guild...");
+
+    // Guild Command - 只在指定伺服器生效，但立即可用
+    await rest.put(
+      Routes.applicationGuildCommands(client.user!.id, guildId),
+      { body: commandData }
+    );
+
+    console.log("[INFO] Slash commands registered successfully!");
+  } catch (error) {
+    console.error("[ERROR] Failed to register commands:", error);
+  }
+}
 
 // 啟動 Bot 連線
 export async function startBot(): Promise<void> {
   try {
     await client.login(config.discord.token);
+
+    // 登入成功後註冊指令
+    await registerCommands();
   } catch (error: any) {
     console.error("[ERROR] Login failed:", error.message);
 
