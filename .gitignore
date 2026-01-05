@@ -9,7 +9,7 @@ dist/
 
 # Data files
 data/*.json
-data/hsr/
+src/db/data/hsr/
 
 # IDE
 .vscode/

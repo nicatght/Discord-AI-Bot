@@ -7,7 +7,7 @@
  * 3. 管理快取圖片檔案
  *
  * 快取目錄結構：
- * data/hsr/<uid>/
+ * src/db/data/hsr/<uid>/
  *   cache.json    - 快取資訊（hash 對照表）
  *   <charId>.png  - 角色卡片圖片
  */
@@ -17,8 +17,8 @@ import * as path from "path";
 import * as crypto from "crypto";
 import { HsrCharacter } from "./hsrService";
 
-// 快取根目錄
-const CACHE_ROOT = path.join(__dirname, "../../data/hsr");
+// 快取根目錄（與 hsr_uids.json 同層）
+const CACHE_ROOT = path.join(__dirname, "../db/data/hsr");
 
 /**
  * 單一角色的快取資訊
