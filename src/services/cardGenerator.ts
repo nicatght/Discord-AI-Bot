@@ -1,21 +1,31 @@
 /**
  * Card Generator Service
  *
- * This service calls the Python script to generate Honkai Star Rail character cards.
- * It uses the starrailcard Python library which fetches data from MiHoMo API
- * and generates beautiful character cards with stats, relics, and light cones.
+ * 負責呼叫 Python 腳本生成崩鐵角色卡片。
  *
- * How it works:
- * 1. Node.js spawns a Python child process
- * 2. Python script uses starrailcard to generate the card image
- * 3. Image is saved to temp/ directory
- * 4. Node.js reads the file path from Python's stdout
- * 5. The image file can then be sent to Discord
+ * 運作流程：
+ * 1. 檢查快取是否需要更新（比對 hash）
+ * 2. 如果需要更新，清除舊圖片並呼叫 Python 生成新圖片
+ * 3. 更新快取 JSON
+ * 4. 回傳圖片路徑
+ *
+ * 快取結構：
+ * data/hsr/<uid>/
+ *   cache.json    - hash 對照表
+ *   <charId>.png  - 角色卡片圖片
  */
 
 import { spawn } from "child_process";
 import * as path from "path";
 import * as fs from "fs";
+import { HsrCharacter } from "./hsrService";
+import {
+  anyNeedsRegeneration,
+  clearCardImages,
+  updateCache,
+  getCardImagePath,
+  getCacheDirectory,
+} from "./hsrCardCache";
 
 // Python 相關路徑
 const PYTHON_DIR = path.join(__dirname, "../../python");
@@ -32,25 +42,17 @@ const PYTHON_EXECUTABLE = fs.existsSync(UV_VENV_PYTHON)
     ? VENV_PYTHON
     : "python";
 
-// Temp directory for generated images
-const TEMP_DIR = path.join(__dirname, "../../temp");
-
-// Ensure temp directory exists
-if (!fs.existsSync(TEMP_DIR)) {
-  fs.mkdirSync(TEMP_DIR, { recursive: true });
-}
-
 /**
- * Character info from the Python script
+ * 批次生成結果
  */
-export interface CharacterInfo {
-  id: string;
-  name: string;
-  rarity: number;
+export interface GenerateAllResult {
+  success: boolean;
+  cardPaths?: Record<string, string>; // charId -> filePath
+  error?: string;
 }
 
 /**
- * Result from card generation
+ * 單一角色卡片結果
  */
 export interface CardResult {
   success: boolean;
@@ -59,40 +61,38 @@ export interface CardResult {
 }
 
 /**
- * Run the Python script and capture its output.
+ * 執行 Python 腳本並取得輸出
  *
- * @param args - Arguments to pass to the Python script
- * @returns Promise that resolves with stdout content
+ * @param args - 傳給 Python 腳本的參數
+ * @returns Promise 解析為 stdout 內容
  *
- * How child_process.spawn works:
- * - spawn() creates a new process running the specified command
- * - We listen to 'stdout' for normal output
- * - We listen to 'stderr' for error output
- * - 'close' event fires when the process exits
+ * spawn() 的運作方式：
+ * - 建立新的子程序執行指定命令
+ * - 監聽 'stdout' 取得正常輸出
+ * - 監聽 'stderr' 取得錯誤輸出
+ * - 'close' 事件在程序結束時觸發
  */
 function runPython(args: string[]): Promise<string> {
   return new Promise((resolve, reject) => {
-    // spawn(command, args) - 執行指定的命令
-    // 使用 PYTHON_EXECUTABLE，如果有 venv 就用 venv 的 Python
     console.log(`[CardGenerator] Using Python: ${PYTHON_EXECUTABLE}`);
+    console.log(`[CardGenerator] Args: ${args.join(" ")}`);
+
     const process = spawn(PYTHON_EXECUTABLE, [PYTHON_SCRIPT, ...args]);
 
     let stdout = "";
     let stderr = "";
 
-    // Collect stdout data
-    // 'data' event fires when the process writes to stdout
+    // 收集 stdout
     process.stdout.on("data", (data: Buffer) => {
       stdout += data.toString();
     });
 
-    // Collect stderr data (for debugging)
+    // 收集 stderr（用於除錯）
     process.stderr.on("data", (data: Buffer) => {
       stderr += data.toString();
     });
 
-    // 'close' event fires when the process exits
-    // code is the exit code (0 = success, non-zero = error)
+    // 程序結束時
     process.on("close", (code) => {
       if (code !== 0) {
         console.error(`[CardGenerator] Python stderr: ${stderr}`);
@@ -100,11 +100,10 @@ function runPython(args: string[]): Promise<string> {
         return;
       }
 
-      // Return the stdout content (trimmed of whitespace)
       resolve(stdout.trim());
     });
 
-    // Handle process errors (e.g., Python not installed)
+    // 處理程序錯誤（例如 Python 未安裝）
     process.on("error", (err) => {
       reject(new Error(`Failed to start Python process: ${err.message}`));
     });
@@ -112,25 +111,22 @@ function runPython(args: string[]): Promise<string> {
 }
 
 /**
- * Parse the Python script output.
+ * 解析 Python 腳本輸出
  *
- * The Python script outputs in format:
- * - Success: "SUCCESS:<data>"
- * - Error: "ERROR:<message>"
- *
- * @param output - Raw output from Python script
- * @returns Parsed result with success status and data/error
+ * 輸出格式：
+ * - 成功: "SUCCESS:<data>"
+ * - 失敗: "ERROR:<message>"
  */
 function parseOutput(output: string): { success: boolean; data?: string; error?: string } {
   if (output.startsWith("SUCCESS:")) {
     return {
       success: true,
-      data: output.substring(8), // Remove "SUCCESS:" prefix
+      data: output.substring(8),
     };
   } else if (output.startsWith("ERROR:")) {
     return {
       success: false,
-      error: output.substring(6), // Remove "ERROR:" prefix
+      error: output.substring(6),
     };
   } else {
     return {
@@ -141,87 +137,39 @@ function parseOutput(output: string): { success: boolean; data?: string; error?:
 }
 
 /**
- * Generate a unique filename for the card image.
+ * 生成所有展櫃角色的卡片
  *
- * Uses timestamp and random string to avoid collisions.
- * Example: "card_1704067200000_abc123.png"
+ * 這是主要的生成函數，會：
+ * 1. 清除該 UID 目錄下的所有舊圖片
+ * 2. 呼叫 Python 批次生成所有角色卡片
+ * 3. 更新快取 JSON
+ *
+ * @param uid - 玩家 UID
+ * @param characters - 角色列表（用於更新快取）
+ * @param lang - 語言代碼
+ * @param template - 卡片模板樣式
  */
-function generateFileName(): string {
-  const timestamp = Date.now();
-  const random = Math.random().toString(36).substring(2, 8);
-  return `card_${timestamp}_${random}.png`;
-}
-
-/**
- * List all showcase characters for a player.
- *
- * @param uid - Player's UID
- * @param lang - Language code (default: "cht" for Traditional Chinese)
- * @returns Array of character info
- *
- * Usage:
- * ```typescript
- * const characters = await listCharacters("800123456");
- * // Returns: [{ id: "1004", name: "Welt", rarity: 5 }, ...]
- * ```
- */
-export async function listCharacters(uid: string, lang: string = "cht"): Promise<CharacterInfo[]> {
-  try {
-    const output = await runPython(["list", uid, "--lang", lang]);
-    const result = parseOutput(output);
-
-    if (!result.success || !result.data) {
-      console.error(`[CardGenerator] Failed to list characters: ${result.error}`);
-      return [];
-    }
-
-    // Parse JSON array from the data
-    return JSON.parse(result.data) as CharacterInfo[];
-  } catch (error) {
-    console.error(`[CardGenerator] Error listing characters:`, error);
-    return [];
-  }
-}
-
-/**
- * Generate a character card image.
- *
- * @param uid - Player's UID
- * @param characterId - Character ID to generate card for
- * @param lang - Language code (default: "cht")
- * @param template - Card template style 1-3 (default: 2)
- * @returns Result with file path on success
- *
- * Usage:
- * ```typescript
- * const result = await generateCard("800123456", "1004");
- * if (result.success) {
- *   // Use result.filePath to send the image
- *   await channel.send({ files: [result.filePath] });
- *   // Clean up after sending
- *   deleteCardFile(result.filePath);
- * }
- * ```
- */
-export async function generateCard(
+async function generateAllCards(
   uid: string,
-  characterId: string,
+  characters: HsrCharacter[],
   lang: string = "cht",
   template: number = 2
-): Promise<CardResult> {
+): Promise<GenerateAllResult> {
   try {
-    // Generate output file path
-    const fileName = generateFileName();
-    const outputPath = path.join(TEMP_DIR, fileName);
+    // 取得快取目錄路徑
+    const cacheDir = getCacheDirectory(uid);
 
-    // Run Python script
+    // 清除舊圖片（避免殘留）
+    clearCardImages(uid);
+
+    console.log(`[CardGenerator] Generating all cards for UID ${uid}`);
+
+    // 呼叫 Python 腳本生成所有卡片
     const output = await runPython([
-      "generate",
+      "generate_all",
       uid,
-      "--character_id",
-      characterId,
-      "--output",
-      outputPath,
+      "--output_dir",
+      cacheDir,
       "--lang",
       lang,
       "--template",
@@ -230,24 +178,96 @@ export async function generateCard(
 
     const result = parseOutput(output);
 
-    if (!result.success) {
+    if (!result.success || !result.data) {
       return {
         success: false,
-        error: result.error,
+        error: result.error || "Unknown error",
       };
     }
 
-    // Verify file was created
-    if (!fs.existsSync(outputPath)) {
+    // 解析 Python 回傳的 JSON（charId -> filePath 對照）
+    const cardPaths = JSON.parse(result.data) as Record<string, string>;
+
+    // 更新快取 JSON
+    updateCache(uid, characters);
+
+    console.log(`[CardGenerator] Generated ${Object.keys(cardPaths).length} cards for UID ${uid}`);
+
+    return {
+      success: true,
+      cardPaths,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[CardGenerator] Error generating cards:`, error);
+    return {
+      success: false,
+      error: message,
+    };
+  }
+}
+
+/**
+ * 取得角色卡片（含快取機制）
+ *
+ * 這是對外的主要 API，流程如下：
+ * 1. 檢查是否有任何角色需要重新生成
+ * 2. 如果需要，批次生成所有角色卡片
+ * 3. 回傳指定角色的卡片路徑
+ *
+ * @param uid - 玩家 UID
+ * @param characterId - 要取得的角色 ID
+ * @param characters - 所有展櫃角色列表（用於快取比對和更新）
+ * @param lang - 語言代碼
+ * @param template - 卡片模板樣式
+ *
+ * Usage:
+ * ```typescript
+ * const player = await fetchPlayerInfo(uid);
+ * const result = await getCharacterCard(uid, "1309", player.characters);
+ * if (result.success) {
+ *   // 使用 result.filePath 發送圖片
+ * }
+ * ```
+ */
+export async function getCharacterCard(
+  uid: string,
+  characterId: string,
+  characters: HsrCharacter[],
+  lang: string = "cht",
+  template: number = 2
+): Promise<CardResult> {
+  try {
+    // 檢查是否需要重新生成
+    if (anyNeedsRegeneration(uid, characters)) {
+      console.log(`[CardGenerator] Cache miss for UID ${uid}, regenerating all cards`);
+
+      const genResult = await generateAllCards(uid, characters, lang, template);
+
+      if (!genResult.success) {
+        return {
+          success: false,
+          error: genResult.error,
+        };
+      }
+    } else {
+      console.log(`[CardGenerator] Cache hit for UID ${uid}`);
+    }
+
+    // 取得角色卡片路徑
+    const imagePath = getCardImagePath(uid, characterId);
+
+    // 確認檔案存在
+    if (!fs.existsSync(imagePath)) {
       return {
         success: false,
-        error: "Card file was not created",
+        error: `Card image not found for character ${characterId}`,
       };
     }
 
     return {
       success: true,
-      filePath: outputPath,
+      filePath: imagePath,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -259,45 +279,19 @@ export async function generateCard(
 }
 
 /**
- * Delete a card file after it's been used.
+ * 強制重新生成所有卡片（忽略快取）
  *
- * Call this after sending the image to Discord to clean up disk space.
+ * 用於使用者手動要求更新的情況
  *
- * @param filePath - Path to the file to delete
+ * @param uid - 玩家 UID
+ * @param characters - 角色列表
  */
-export function deleteCardFile(filePath: string): void {
-  try {
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
-  } catch (error) {
-    console.error(`[CardGenerator] Failed to delete file: ${filePath}`, error);
-  }
-}
-
-/**
- * Clean up old card files in the temp directory.
- *
- * Deletes files older than the specified age.
- *
- * @param maxAgeMs - Maximum age in milliseconds (default: 1 hour)
- */
-export function cleanupOldCards(maxAgeMs: number = 60 * 60 * 1000): void {
-  try {
-    const now = Date.now();
-    const files = fs.readdirSync(TEMP_DIR);
-
-    for (const file of files) {
-      const filePath = path.join(TEMP_DIR, file);
-      const stats = fs.statSync(filePath);
-
-      // Check if file is older than maxAge
-      if (now - stats.mtimeMs > maxAgeMs) {
-        fs.unlinkSync(filePath);
-        console.log(`[CardGenerator] Cleaned up old file: ${file}`);
-      }
-    }
-  } catch (error) {
-    console.error(`[CardGenerator] Error during cleanup:`, error);
-  }
+export async function forceRegenerateCards(
+  uid: string,
+  characters: HsrCharacter[],
+  lang: string = "cht",
+  template: number = 2
+): Promise<GenerateAllResult> {
+  console.log(`[CardGenerator] Force regenerating cards for UID ${uid}`);
+  return generateAllCards(uid, characters, lang, template);
 }

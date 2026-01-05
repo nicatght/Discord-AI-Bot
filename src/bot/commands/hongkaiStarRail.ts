@@ -22,7 +22,7 @@ import {
 } from "discord.js";
 import { fetchPlayerInfo } from "../../services/hsrService";
 import { getHsrUid, setHsrUid, deleteHsrUid, getAllHsrUids } from "../../db";
-import { generateCard, deleteCardFile } from "../../services/cardGenerator";
+import { getCharacterCard } from "../../services/cardGenerator";
 
 // Autocomplete 選項
 const ACTION_CHOICES = [
@@ -438,22 +438,29 @@ async function handleShowcaseCharacterSelect(
     return;
   }
 
-  // 清除快取
+  // 清除暫存快取（Discord 互動用的）
   playerDataCache.delete(userId);
 
-  // 更新私人訊息，顯示正在生成卡片
+  // 更新私人訊息，顯示正在處理
   await interaction.update({
-    content: `正在生成 **${char.name}** 的角色卡片...`,
+    content: `正在載入 **${char.name}** 的角色卡片...`,
     components: [],
   });
 
-  // 呼叫 Python 生成角色卡片
-  // generateCard 會：
-  // 1. 執行 Python 腳本
-  // 2. 使用 starrailcard 庫生成精美的角色卡片圖
-  // 3. 圖片儲存到 temp/ 目錄
-  // 4. 回傳檔案路徑
-  const cardResult = await generateCard(player.uid, char.id);
+  // 取得角色卡片（含快取機制）
+  // getCharacterCard 會：
+  // 1. 檢查快取是否需要更新（比對 hash）
+  // 2. 如果需要，批次生成所有展櫃角色卡片
+  // 3. 回傳指定角色的卡片路徑
+  //
+  // 快取優點：
+  // - 第一次查詢會生成所有角色，之後直接使用快取
+  // - 只有角色配置改變時才會重新生成
+  const cardResult = await getCharacterCard(
+    player.uid,
+    char.id,
+    player.characters // 傳入所有角色資料，用於快取比對
+  );
 
   if (!cardResult.success || !cardResult.filePath) {
     // 卡片生成失敗，改用 fallback（原本的 embed 方式）
@@ -473,22 +480,27 @@ async function handleShowcaseCharacterSelect(
       .setFooter({ text: "Data from MiHoMo API" });
 
     if (char.lightCone) {
-      embed.addFields({ name: "光錐", value: char.lightCone, inline: true });
+      // lightCone 現在是物件，顯示 ID 和等級
+      embed.addFields({
+        name: "光錐",
+        value: `ID: ${char.lightCone.id} (Lv.${char.lightCone.level})`,
+        inline: true,
+      });
     }
 
     await interaction.followUp({ embeds: [embed] });
     return;
   }
 
-  // 卡片生成成功
+  // 卡片取得成功
   await interaction.editReply({
-    content: `已生成 **${char.name}** 的角色卡片`,
+    content: `**${char.name}** 的角色卡片`,
   });
 
   // 使用 AttachmentBuilder 將圖片檔案作為附件發送
   // AttachmentBuilder 可以從檔案路徑建立附件
   const attachment = new AttachmentBuilder(cardResult.filePath, {
-    name: `${char.name}_card.png`,
+    name: `${char.id}_card.png`, // 使用角色 ID 作為檔名，避免中文編碼問題
   });
 
   // 公開發送卡片圖片
@@ -496,7 +508,6 @@ async function handleShowcaseCharacterSelect(
     files: [attachment],
   });
 
-  // 清理暫存檔案
-  // 圖片發送後就不需要了，刪除以節省空間
-  deleteCardFile(cardResult.filePath);
+  // 注意：不需要刪除圖片！
+  // 圖片存在快取目錄 (data/hsr/<uid>/)，會被重複使用
 }
