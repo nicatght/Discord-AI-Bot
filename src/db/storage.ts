@@ -52,25 +52,24 @@ export function saveJson<T>(filename: string, data: T): boolean {
  */
 const HSR_UID_FILE = "hsr_uids.json";
 
+/**
+ * 取得用戶的 HSR UID
+ * @param discordUserId Discord 用戶 ID
+ * @returns UID 字串，若無則回傳 null
+ */
 export function getHsrUid(discordUserId: string): string | null {
   const uids = loadJson<Record<string, string>>(HSR_UID_FILE, {});
   return uids[discordUserId] || null;
 }
 
 /**
- * 設定 HSR UID（先驗證 UID 是否存在）
+ * 設定 HSR UID（先驗證 UID 是否存在，允許覆蓋舊 UID）
  * @returns { success: true, nickname } 儲存成功，{ success: false, error } 失敗
  */
 export async function setHsrUid(
   discordUserId: string,
   hsrUid: string
 ): Promise<{ success: boolean; nickname?: string; error?: string }> {
-  // 先檢查是否已經綁定過
-  const existingUids = loadJson<Record<string, string>>(HSR_UID_FILE, {});
-  if (existingUids[discordUserId]) {
-    return { success: false, error: "你已經綁定過 UID 了，請先使用 `/honkai-star-rail uid delete` 刪除舊的 UID" };
-  }
-
   // 驗證 UID 是否有效
   const player = await fetchPlayerInfo(hsrUid);
 

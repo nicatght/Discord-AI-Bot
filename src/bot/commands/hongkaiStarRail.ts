@@ -62,17 +62,26 @@ export async function autocomplete(
   await interaction.respond(filtered.slice(0, 25));
 }
 
-// UID 子選單
-function createUidMenu() {
+// UID 子選單（根據用戶是否已註冊顯示不同選項）
+function createUidMenu(hasRegistered: boolean) {
   const select = new StringSelectMenuBuilder()
     .setCustomId(MENU_UID)
-    .setPlaceholder("選擇 UID 操作")
-    .addOptions([
-      { label: "註冊 UID", value: "add", description: "綁定你的崩鐵 UID" },
-      { label: "顯示 UID", value: "show", description: "顯示你的 UID 到公頻" },
+    .setPlaceholder("選擇 UID 操作");
+
+  if (hasRegistered) {
+    // 已註冊：顯示更換和刪除選項
+    select.addOptions([
+      { label: "更換 UID", value: "add", description: "更換新的 UID" },
       { label: "刪除 UID", value: "delete", description: "解除綁定" },
       { label: "查看統計", value: "stats", description: "查看 UID 註冊統計" },
     ]);
+  } else {
+    // 未註冊：顯示註冊選項
+    select.addOptions([
+      { label: "註冊 UID", value: "add", description: "綁定你的崩鐵 UID" },
+      { label: "查看統計", value: "stats", description: "查看 UID 註冊統計" },
+    ]);
+  }
 
   return new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select);
 }
@@ -100,13 +109,20 @@ export async function execute(
   const userId = interaction.user.id;
 
   switch (action) {
-    case "uid":
+    case "uid": {
+      const existingUid = getHsrUid(userId);
+      const hasRegistered = !!existingUid;
+      const statusMsg = hasRegistered
+        ? `你已註冊 UID: \`${existingUid}\``
+        : "你尚未註冊 UID";
+
       await interaction.reply({
-        content: "請選擇 UID 操作：",
-        components: [createUidMenu()],
+        content: `${statusMsg}\n請選擇操作：`,
+        components: [createUidMenu(hasRegistered)],
         flags: MessageFlags.Ephemeral,
       });
       break;
+    }
 
     case "profile":
       await handleProfile(interaction, userId);
@@ -144,10 +160,6 @@ export async function handleSelectMenu(
         await showUidModal(interaction);
         break;
 
-      case "show":
-        await handleShowUid(interaction, userId);
-        break;
-
       case "delete":
         await handleDeleteConfirm(interaction, userId);
         break;
@@ -177,7 +189,7 @@ async function showUidModal(
     .setRequired(true);
 
   const row = new ActionRowBuilder<TextInputBuilder>().addComponents(uidInput);
-  modal.addComponents(row);
+  modal.setComponents(row);
 
   await interaction.showModal(modal);
 }
@@ -241,27 +253,6 @@ export async function handleButton(
   }
 }
 
-// 顯示 UID
-async function handleShowUid(
-  interaction: StringSelectMenuInteraction,
-  userId: string
-): Promise<void> {
-  const uid = getHsrUid(userId);
-
-  if (!uid) {
-    await interaction.update({
-      content: "你還沒有註冊 UID",
-      components: [],
-    });
-    return;
-  }
-
-  await interaction.update({
-    content: `你的崩鐵 UID: \`${uid}\``,
-    components: [],
-  });
-}
-
 // 刪除確認
 async function handleDeleteConfirm(
   interaction: StringSelectMenuInteraction,
@@ -291,14 +282,14 @@ async function handleStats(
   const totalUsers = Object.keys(allUids).length;
 
   const embed = new EmbedBuilder()
-    .setTitle("HSR UID 註冊統計")
+    .setTitle("崩鐵 UID 註冊帳戶統計")
     .addFields({
       name: "總註冊人數",
       value: totalUsers.toString(),
       inline: true,
     })
     .setColor(0x7c3aed)
-    .setFooter({ text: "Honkai: Star Rail UID System" });
+    .setFooter({ text: "吉娃喵系統 報告" });
 
   await interaction.update({
     content: "",
@@ -322,7 +313,7 @@ async function handleProfile(
     return;
   }
 
-  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  await interaction.deferReply();
 
   const player = await fetchPlayerInfo(uid);
 
@@ -333,16 +324,18 @@ async function handleProfile(
 
   const embed = new EmbedBuilder()
     .setTitle(player.nickname)
-    .setDescription(player.signature || "No signature")
     .setThumbnail(player.profilePictureUrl)
     .addFields(
       { name: "UID", value: player.uid, inline: true },
-      { name: "開拓等級", value: player.level.toString(), inline: true },
-      { name: "均衡等級", value: player.worldLevel.toString(), inline: true },
-      { name: "展示角色數", value: player.characters.length.toString(), inline: true }
+      { name: "開拓等級", value: player.level.toString(), inline: true }
     )
     .setColor(0x7c3aed)
-    .setFooter({ text: "Data from MiHoMo API" });
+    .setFooter({ text: "資料源自 MiHoMo" });
+
+  // 有簽名才顯示
+  if (player.signature) {
+    embed.setDescription(player.signature);
+  }
 
   await interaction.editReply({ embeds: [embed] });
 }
