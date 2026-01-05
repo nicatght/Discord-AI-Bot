@@ -18,6 +18,7 @@ export interface HsrPlayerInfo {
 }
 
 export interface HsrCharacter {
+  id: string;        // 角色 ID，用於卡片生成
   name: string;
   level: number;
   rarity: number;
@@ -41,6 +42,7 @@ export async function fetchPlayerInfo(uid: string): Promise<HsrPlayerInfo | null
     // 取得角色資料
     const userCharacters = user.getCharacters();
     const characters: HsrCharacter[] = userCharacters.map((char) => ({
+      id: char.characterData.id.toString(),  // 角色 ID
       name: char.characterData.name.get("cht") || char.characterData.name.get("en") || "Unknown",
       level: char.level,
       rarity: char.characterData.stars,

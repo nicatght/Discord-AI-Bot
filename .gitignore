@@ -26,5 +26,14 @@ logs/
 *.log
 npm-debug.log*
 
+# Temp files (generated card images)
+temp/
+
+# Python
+python/__pycache__/
+python/*.pyc
+.venv/
+venv/
+
 # claude
 CLAUDE.md

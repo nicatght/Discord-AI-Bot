@@ -18,9 +18,11 @@ import {
   ButtonStyle,
   ButtonInteraction,
   MessageFlags,
+  AttachmentBuilder,
 } from "discord.js";
 import { fetchPlayerInfo } from "../../services/hsrService";
 import { getHsrUid, setHsrUid, deleteHsrUid, getAllHsrUids } from "../../db";
+import { generateCard, deleteCardFile } from "../../services/cardGenerator";
 
 // Autocomplete 選項
 const ACTION_CHOICES = [
@@ -439,24 +441,62 @@ async function handleShowcaseCharacterSelect(
   // 清除快取
   playerDataCache.delete(userId);
 
-  // 先更新原本的私人訊息
+  // 更新私人訊息，顯示正在生成卡片
   await interaction.update({
-    content: `已選擇 **${char.name}**`,
+    content: `正在生成 **${char.name}** 的角色卡片...`,
     components: [],
   });
 
-  // 公開發送角色資訊
-  const embed = new EmbedBuilder()
-    .setTitle(char.name)
-    .setDescription(`${player.nickname} 的展示角色`)
-    .setImage(char.splashUrl)
-    .setThumbnail(char.iconUrl)
-    .setColor(0x7c3aed)
-    .setFooter({ text: "Data from MiHoMo API" });
+  // 呼叫 Python 生成角色卡片
+  // generateCard 會：
+  // 1. 執行 Python 腳本
+  // 2. 使用 starrailcard 庫生成精美的角色卡片圖
+  // 3. 圖片儲存到 temp/ 目錄
+  // 4. 回傳檔案路徑
+  const cardResult = await generateCard(player.uid, char.id);
 
-  if (char.lightCone) {
-    embed.addFields({ name: "光錐", value: char.lightCone, inline: true });
+  if (!cardResult.success || !cardResult.filePath) {
+    // 卡片生成失敗，改用 fallback（原本的 embed 方式）
+    console.error(`[HSR] Card generation failed: ${cardResult.error}`);
+
+    await interaction.editReply({
+      content: `卡片生成失敗，使用簡易模式顯示`,
+    });
+
+    // Fallback: 使用 embed 顯示基本資訊
+    const embed = new EmbedBuilder()
+      .setTitle(char.name)
+      .setDescription(`${player.nickname} 的展示角色`)
+      .setImage(char.splashUrl)
+      .setThumbnail(char.iconUrl)
+      .setColor(0x7c3aed)
+      .setFooter({ text: "Data from MiHoMo API" });
+
+    if (char.lightCone) {
+      embed.addFields({ name: "光錐", value: char.lightCone, inline: true });
+    }
+
+    await interaction.followUp({ embeds: [embed] });
+    return;
   }
 
-  await interaction.followUp({ embeds: [embed] });
+  // 卡片生成成功
+  await interaction.editReply({
+    content: `已生成 **${char.name}** 的角色卡片`,
+  });
+
+  // 使用 AttachmentBuilder 將圖片檔案作為附件發送
+  // AttachmentBuilder 可以從檔案路徑建立附件
+  const attachment = new AttachmentBuilder(cardResult.filePath, {
+    name: `${char.name}_card.png`,
+  });
+
+  // 公開發送卡片圖片
+  await interaction.followUp({
+    files: [attachment],
+  });
+
+  // 清理暫存檔案
+  // 圖片發送後就不需要了，刪除以節省空間
+  deleteCardFile(cardResult.filePath);
 }
