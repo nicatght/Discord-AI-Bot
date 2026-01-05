@@ -4,6 +4,14 @@ import * as hsrCommand from "../commands/hongkaiStarRail";
 
 export async function commandHandler(interaction: Interaction): Promise<void> {
   try {
+    // Autocomplete
+    if (interaction.isAutocomplete()) {
+      if (interaction.commandName === "honkai-star-rail") {
+        await hsrCommand.autocomplete(interaction);
+      }
+      return;
+    }
+
     // Slash Command
     if (interaction.isChatInputCommand()) {
       const command = commands.get(interaction.commandName);

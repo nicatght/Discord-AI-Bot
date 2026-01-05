@@ -1,10 +1,11 @@
 /**
- * 崩壞星穹鐵道指令 - 使用 Select Menu + Modal
+ * 崩壞星穹鐵道指令 - Autocomplete + Select Menu 混搭
  */
 
 import {
   SlashCommandBuilder,
   ChatInputCommandInteraction,
+  AutocompleteInteraction,
   EmbedBuilder,
   ActionRowBuilder,
   StringSelectMenuBuilder,
@@ -21,8 +22,15 @@ import {
 import { fetchPlayerInfo } from "../../services/hsrService";
 import { getHsrUid, setHsrUid, deleteHsrUid, getAllHsrUids } from "../../db";
 
+// Autocomplete 選項
+const ACTION_CHOICES = [
+  { name: "UID 管理", value: "uid" },
+  { name: "個人資料", value: "profile" },
+  { name: "展示角色", value: "showcase" },
+  { name: "兌換碼查詢", value: "codes" },
+];
+
 // Custom IDs
-const MENU_MAIN = "hsr_menu_main";
 const MENU_UID = "hsr_menu_uid";
 const MODAL_UID_ADD = "hsr_modal_uid_add";
 const MODAL_UID_INPUT = "hsr_modal_uid_input";
@@ -32,24 +40,26 @@ const BTN_UID_DELETE_CANCEL = "hsr_btn_uid_delete_cancel";
 // 定義指令
 export const data = new SlashCommandBuilder()
   .setName("honkai-star-rail")
-  .setDescription("崩壞: 星穹鐵道 相關指令");
+  .setDescription("崩壞: 星穹鐵道 相關指令")
+  .addStringOption((option) =>
+    option
+      .setName("action")
+      .setDescription("選擇功能")
+      .setRequired(true)
+      .setAutocomplete(true)
+  );
 
-// 主選單
-function createMainMenu() {
-  const select = new StringSelectMenuBuilder()
-    .setCustomId(MENU_MAIN)
-    .setPlaceholder("選擇功能")
-    .addOptions([
-      { label: "UID 管理", value: "uid", description: "註冊、刪除、查看 UID" },
-      {
-        label: "展示角色",
-        value: "characters",
-        description: "查看你的展示角色",
-      },
-      { label: "兌換碼查詢", value: "codes", description: "查看最新兌換碼" },
-    ]);
+// 處理 Autocomplete
+export async function autocomplete(
+  interaction: AutocompleteInteraction
+): Promise<void> {
+  const focusedValue = interaction.options.getFocused().toLowerCase();
 
-  return new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select);
+  const filtered = ACTION_CHOICES.filter((choice) =>
+    choice.name.toLowerCase().includes(focusedValue)
+  );
+
+  await interaction.respond(filtered.slice(0, 25));
 }
 
 // UID 子選單
@@ -61,7 +71,7 @@ function createUidMenu() {
       { label: "註冊 UID", value: "add", description: "綁定你的崩鐵 UID" },
       { label: "顯示 UID", value: "show", description: "顯示你的 UID 到公頻" },
       { label: "刪除 UID", value: "delete", description: "解除綁定" },
-      { label: "查看統計", value: "stats", description: "查看 uid 註冊統計" },
+      { label: "查看統計", value: "stats", description: "查看 UID 註冊統計" },
     ]);
 
   return new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select);
@@ -82,15 +92,43 @@ function createDeleteConfirmButtons() {
   return new ActionRowBuilder<ButtonBuilder>().addComponents(confirm, cancel);
 }
 
-// 執行指令 - 顯示主選單
+// 執行指令
 export async function execute(
   interaction: ChatInputCommandInteraction
 ): Promise<void> {
-  await interaction.reply({
-    content: "請選擇功能：",
-    components: [createMainMenu()],
-    flags: MessageFlags.Ephemeral,
-  });
+  const action = interaction.options.getString("action", true);
+  const userId = interaction.user.id;
+
+  switch (action) {
+    case "uid":
+      await interaction.reply({
+        content: "請選擇 UID 操作：",
+        components: [createUidMenu()],
+        flags: MessageFlags.Ephemeral,
+      });
+      break;
+
+    case "profile":
+      await handleProfile(interaction, userId);
+      break;
+
+    case "showcase":
+      await handleShowcase(interaction, userId);
+      break;
+
+    case "codes":
+      await interaction.reply({
+        content: "兌換碼功能開發中...",
+        flags: MessageFlags.Ephemeral,
+      });
+      break;
+
+    default:
+      await interaction.reply({
+        content: "未知的操作，請從選單中選擇",
+        flags: MessageFlags.Ephemeral,
+      });
+  }
 }
 
 // 處理 Select Menu 互動
@@ -100,35 +138,14 @@ export async function handleSelectMenu(
   const userId = interaction.user.id;
   const value = interaction.values[0];
 
-  // 主選單
-  if (interaction.customId === MENU_MAIN) {
-    switch (value) {
-      case "uid":
-        await interaction.update({
-          content: "請選擇 UID 操作：",
-          components: [createUidMenu()],
-        });
-        break;
-
-      case "characters":
-        await handleCharacters(interaction, userId);
-        break;
-
-      case "codes":
-        await interaction.update({
-          content: "兌換碼功能開發中...",
-          components: [],
-        });
-        break;
-    }
-    return;
-  }
-
-  // UID 子選單
   if (interaction.customId === MENU_UID) {
     switch (value) {
       case "add":
         await showUidModal(interaction);
+        break;
+
+      case "show":
+        await handleShowUid(interaction, userId);
         break;
 
       case "delete":
@@ -224,6 +241,27 @@ export async function handleButton(
   }
 }
 
+// 顯示 UID
+async function handleShowUid(
+  interaction: StringSelectMenuInteraction,
+  userId: string
+): Promise<void> {
+  const uid = getHsrUid(userId);
+
+  if (!uid) {
+    await interaction.update({
+      content: "你還沒有註冊 UID",
+      components: [],
+    });
+    return;
+  }
+
+  await interaction.update({
+    content: `你的崩鐵 UID: \`${uid}\``,
+    components: [],
+  });
+}
+
 // 刪除確認
 async function handleDeleteConfirm(
   interaction: StringSelectMenuInteraction,
@@ -269,39 +307,72 @@ async function handleStats(
   });
 }
 
-// 展示角色
-async function handleCharacters(
-  interaction: StringSelectMenuInteraction,
+// 個人資料
+async function handleProfile(
+  interaction: ChatInputCommandInteraction,
   userId: string
 ): Promise<void> {
   const uid = getHsrUid(userId);
 
   if (!uid) {
-    await interaction.update({
-      content: "你還沒有註冊 UID！請先選擇「UID 管理」->「註冊 UID」",
-      components: [createMainMenu()],
+    await interaction.reply({
+      content: "你還沒有註冊 UID！請先使用 `/honkai-star-rail` 選擇「UID 管理」註冊",
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
 
-  await interaction.update({
-    content: "查詢中...",
-    components: [],
-  });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   const player = await fetchPlayerInfo(uid);
 
   if (!player) {
-    await interaction.editReply({
-      content: "查詢失敗，請確認 UID 是否正確，或稍後再試",
+    await interaction.editReply("查詢失敗，請確認 UID 是否正確，或稍後再試");
+    return;
+  }
+
+  const embed = new EmbedBuilder()
+    .setTitle(player.nickname)
+    .setDescription(player.signature || "No signature")
+    .setThumbnail(player.profilePictureUrl)
+    .addFields(
+      { name: "UID", value: player.uid, inline: true },
+      { name: "開拓等級", value: player.level.toString(), inline: true },
+      { name: "均衡等級", value: player.worldLevel.toString(), inline: true },
+      { name: "展示角色數", value: player.characters.length.toString(), inline: true }
+    )
+    .setColor(0x7c3aed)
+    .setFooter({ text: "Data from MiHoMo API" });
+
+  await interaction.editReply({ embeds: [embed] });
+}
+
+// 展示角色
+async function handleShowcase(
+  interaction: ChatInputCommandInteraction,
+  userId: string
+): Promise<void> {
+  const uid = getHsrUid(userId);
+
+  if (!uid) {
+    await interaction.reply({
+      content: "你還沒有註冊 UID！請先使用 `/honkai-star-rail` 選擇「UID 管理」註冊",
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
 
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+  const player = await fetchPlayerInfo(uid);
+
+  if (!player) {
+    await interaction.editReply("查詢失敗，請確認 UID 是否正確，或稍後再試");
+    return;
+  }
+
   if (player.characters.length === 0) {
-    await interaction.editReply({
-      content: "沒有展示角色！請在遊戲中設定展示角色",
-    });
+    await interaction.editReply("沒有展示角色！請在遊戲中設定展示角色");
     return;
   }
 
@@ -319,8 +390,5 @@ async function handleCharacters(
     .setColor(0x7c3aed)
     .setFooter({ text: "Data from MiHoMo API" });
 
-  await interaction.editReply({
-    content: "",
-    embeds: [embed],
-  });
+  await interaction.editReply({ embeds: [embed] });
 }
