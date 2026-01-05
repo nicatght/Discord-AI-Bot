@@ -32,10 +32,15 @@ const ACTION_CHOICES = [
 
 // Custom IDs
 const MENU_UID = "hsr_menu_uid";
+const MENU_SHOWCASE_CHAR = "hsr_menu_showcase_char";
 const MODAL_UID_ADD = "hsr_modal_uid_add";
 const MODAL_UID_INPUT = "hsr_modal_uid_input";
 const BTN_UID_DELETE_CONFIRM = "hsr_btn_uid_delete_confirm";
 const BTN_UID_DELETE_CANCEL = "hsr_btn_uid_delete_cancel";
+
+// 暫存玩家資料（用於 showcase 選角後顯示）
+const playerDataCache = new Map<string, { player: Awaited<ReturnType<typeof fetchPlayerInfo>>; timestamp: number }>();
+const CACHE_TTL = 60000; // 1 分鐘
 
 // 定義指令
 export const data = new SlashCommandBuilder()
@@ -168,6 +173,8 @@ export async function handleSelectMenu(
         await handleStats(interaction);
         break;
     }
+  } else if (interaction.customId === MENU_SHOWCASE_CHAR) {
+    await handleShowcaseCharacterSelect(interaction, userId, value);
   }
 }
 
@@ -340,7 +347,7 @@ async function handleProfile(
   await interaction.editReply({ embeds: [embed] });
 }
 
-// 展示角色
+// 展示角色 - 顯示角色選擇選單
 async function handleShowcase(
   interaction: ChatInputCommandInteraction,
   userId: string
@@ -369,19 +376,87 @@ async function handleShowcase(
     return;
   }
 
-  const characterList = player.characters
-    .map((char) => {
-      const lc = char.lightCone ? ` | ${char.lightCone}` : "";
-      return `**${char.name}** Lv.${char.level} (${char.element})${lc}`;
-    })
-    .join("\n");
+  // 暫存玩家資料
+  playerDataCache.set(userId, { player, timestamp: Date.now() });
 
+  // 建立角色選擇選單
+  const select = new StringSelectMenuBuilder()
+    .setCustomId(MENU_SHOWCASE_CHAR)
+    .setPlaceholder("選擇要展示的角色")
+    .addOptions(
+      player.characters.map((char, index) => ({
+        label: char.name,
+        value: index.toString(),
+      }))
+    );
+
+  const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select);
+
+  await interaction.editReply({
+    content: "請選擇要展示的角色：",
+    components: [row],
+  });
+}
+
+// 處理角色選擇後的顯示
+async function handleShowcaseCharacterSelect(
+  interaction: StringSelectMenuInteraction,
+  userId: string,
+  charIndex: string
+): Promise<void> {
+  const cached = playerDataCache.get(userId);
+
+  // 檢查快取是否過期
+  if (!cached || Date.now() - cached.timestamp > CACHE_TTL) {
+    playerDataCache.delete(userId);
+    await interaction.update({
+      content: "資料已過期，請重新使用 `/honkai-star-rail` 選擇「展示角色」",
+      components: [],
+    });
+    return;
+  }
+
+  const player = cached.player;
+  if (!player) {
+    await interaction.update({
+      content: "查詢失敗，請稍後再試",
+      components: [],
+    });
+    return;
+  }
+
+  const index = parseInt(charIndex);
+  const char = player.characters[index];
+
+  if (!char) {
+    await interaction.update({
+      content: "找不到該角色",
+      components: [],
+    });
+    return;
+  }
+
+  // 清除快取
+  playerDataCache.delete(userId);
+
+  // 先更新原本的私人訊息
+  await interaction.update({
+    content: `已選擇 **${char.name}**`,
+    components: [],
+  });
+
+  // 公開發送角色資訊
   const embed = new EmbedBuilder()
-    .setTitle(`${player.nickname} 的展示角色`)
-    .setDescription(characterList)
-    .setThumbnail(player.profilePictureUrl)
+    .setTitle(char.name)
+    .setDescription(`${player.nickname} 的展示角色`)
+    .setImage(char.splashUrl)
+    .setThumbnail(char.iconUrl)
     .setColor(0x7c3aed)
     .setFooter({ text: "Data from MiHoMo API" });
 
-  await interaction.editReply({ embeds: [embed] });
+  if (char.lightCone) {
+    embed.addFields({ name: "光錐", value: char.lightCone, inline: true });
+  }
+
+  await interaction.followUp({ embeds: [embed] });
 }

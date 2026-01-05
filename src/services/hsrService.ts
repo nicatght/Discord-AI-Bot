@@ -23,6 +23,8 @@ export interface HsrCharacter {
   rarity: number;
   element: string;
   lightCone: string | null;
+  iconUrl: string;
+  splashUrl: string;
 }
 
 /**
@@ -44,6 +46,8 @@ export async function fetchPlayerInfo(uid: string): Promise<HsrPlayerInfo | null
       rarity: char.characterData.stars,
       element: char.characterData.combatType.name.get("cht") || char.characterData.combatType.name.get("en") || "Unknown",
       lightCone: char.lightCone?.lightConeData.name.get("cht") || char.lightCone?.lightConeData.name.get("en") || null,
+      iconUrl: char.characterData.icon.url,
+      splashUrl: char.characterData.splashImage.url,
     }));
 
     return {
