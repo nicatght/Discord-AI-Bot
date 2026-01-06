@@ -8,8 +8,7 @@ dist/
 .env
 
 # Data files
-data/*
-src/db/data/hsr/
+src/db/data/*
 
 # IDE
 .vscode/
