@@ -153,7 +153,7 @@ async function generateAllCards(
   uid: string,
   characters: HsrCharacter[],
   lang: string = "cht",
-  template: number = 2
+  template: number = 3
 ): Promise<GenerateAllResult> {
   try {
     // 取得快取目錄路徑
@@ -235,7 +235,7 @@ export async function getCharacterCard(
   characterId: string,
   characters: HsrCharacter[],
   lang: string = "cht",
-  template: number = 2
+  template: number = 3
 ): Promise<CardResult> {
   try {
     // 檢查是否需要重新生成
@@ -290,7 +290,7 @@ export async function forceRegenerateCards(
   uid: string,
   characters: HsrCharacter[],
   lang: string = "cht",
-  template: number = 2
+  template: number = 3
 ): Promise<GenerateAllResult> {
   console.log(`[CardGenerator] Force regenerating cards for UID ${uid}`);
   return generateAllCards(uid, characters, lang, template);
