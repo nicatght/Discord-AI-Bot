@@ -5,7 +5,7 @@
  * 若不一致，發送 Discord 訊息讓管理員選擇要使用哪個版本。
  *
  * 流程：
- * 1. 讀取本地 hsr_uids.json
+ * 1. 讀取本地 uid.json
  * 2. 讀取 JSONBin.io 資料
  * 3. 比較兩者是否相同
  * 4. 若不同，發送訊息到指定頻道讓管理員選擇
@@ -48,7 +48,7 @@ function isEqual(a: unknown, b: unknown): boolean {
  *
  * 如果是新環境，本地可能沒有 uid.json 檔案。
  * 這個函數會在同步開始前確保檔案存在。
- * loadUidData() 會在檔案不存在時回傳空的 CloudData 結構。
+ * loadUidData() 會在檔案不存在時回傳空的 UidData 結構。
  */
 function ensureLocalFileExists(): void {
   // loadUidData() 會處理檔案不存在的情況

@@ -17,7 +17,7 @@ import * as path from "path";
 import * as crypto from "crypto";
 import { HsrCharacter } from "./hsrService";
 
-// 快取根目錄（與 hsr_uids.json 同層）
+// 快取根目錄（與 uid.json 同層）
 const CACHE_ROOT = path.join(__dirname, "../db/data/hsr");
 
 /**
