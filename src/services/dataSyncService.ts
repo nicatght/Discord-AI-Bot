@@ -29,7 +29,6 @@ import {
   writeToJsonBin,
   initializeJsonBin,
   UidData,
-  createEmptyUidData,
 } from "./jsonBinService";
 import { config } from "../config";
 

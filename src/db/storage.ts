@@ -1,8 +1,8 @@
 /**
  * JSON 儲存服務
  *
- * 本地儲存為主，JSONBin.io 為備份（若有設定）。
- * 寫入時會同步到 JSONBin（非阻塞），確保雲端備份。
+ * 本地儲存為主，JSONBin.io 為定時備份（若有設定）。
+ * 雲端備份採用定時同步（每 6 小時），減少 API 請求次數。
  *
  * 本地與雲端格式統一：
  * {
@@ -16,8 +16,6 @@ import * as fs from "fs";
 import * as path from "path";
 import { fetchPlayerInfo } from "../services/hsrService";
 import {
-  writeToJsonBin,
-  isJsonBinEnabled,
   UidData,
   createEmptyUidData,
 } from "../services/jsonBinService";
@@ -70,26 +68,6 @@ export function saveUidData(data: UidData): boolean {
   }
 }
 
-/**
- * 同步資料到雲端（非阻塞）
- */
-function syncToCloud(data: UidData): void {
-  if (!isJsonBinEnabled()) {
-    return;
-  }
-
-  writeToJsonBin(data)
-    .then((success) => {
-      if (success) {
-        console.log("[JSONBin] Data synced successfully");
-      } else {
-        console.warn("[JSONBin] Sync failed, data only saved locally");
-      }
-    })
-    .catch((error) => {
-      console.error("[JSONBin] Sync error:", error);
-    });
-}
 
 // ============================================
 // HSR UID 操作
@@ -122,8 +100,6 @@ export async function setHsrUid(
   data.hsr[discordUserId] = hsrUid;
 
   if (saveUidData(data)) {
-    // 同步到 JSONBin（非阻塞）
-    syncToCloud(data);
     return { success: true, nickname: player.nickname };
   } else {
     return { success: false, error: "儲存失敗" };
@@ -141,13 +117,7 @@ export function deleteHsrUid(discordUserId: string): boolean {
   }
 
   delete data.hsr[discordUserId];
-  const success = saveUidData(data);
-
-  if (success) {
-    syncToCloud(data);
-  }
-
-  return success;
+  return saveUidData(data);
 }
 
 /**

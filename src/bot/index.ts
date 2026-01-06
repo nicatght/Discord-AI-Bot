@@ -4,6 +4,7 @@ import { commandHandler } from "./handlers/commandHandler";
 import { commands } from "./commands";
 import { config } from "../config";
 import { checkDataSync } from "../services/dataSyncService";
+import { startScheduledBackup } from "../services/scheduledBackup";
 
 // 建立 Discord client
 const client = new Client({
@@ -76,6 +77,9 @@ export async function startBot(): Promise<void> {
 
     // 檢查本地與雲端資料同步狀態
     await checkDataSync(client);
+
+    // 啟動定時備份（每 6 小時）
+    startScheduledBackup();
 
   } catch (error: any) {
     // 錯誤回饋
