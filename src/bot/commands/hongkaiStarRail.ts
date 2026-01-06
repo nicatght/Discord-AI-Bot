@@ -27,7 +27,7 @@ import { getCharacterCard } from "../../services/cardGenerator";
 // Autocomplete 選項
 const ACTION_CHOICES = [
   { name: "UID 管理", value: "uid" },
-  { name: "個人資料", value: "profile" },
+  { name: "帳戶展示", value: "profile" },
   { name: "展示角色", value: "showcase" },
   { name: "兌換碼查詢", value: "codes" },
 ];

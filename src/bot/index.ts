@@ -3,6 +3,7 @@ import { messageHandler } from "./handlers/messageHandler";
 import { commandHandler } from "./handlers/commandHandler";
 import { commands } from "./commands";
 import { config } from "../config";
+import { checkDataSync } from "../services/dataSyncService";
 
 // 建立 Discord client
 const client = new Client({
@@ -72,6 +73,9 @@ export async function startBot(): Promise<void> {
 
     await client.login(config.discord.token);
     await registerCommands();
+
+    // 檢查本地與雲端資料同步狀態
+    await checkDataSync(client);
 
   } catch (error: any) {
     // 錯誤回饋

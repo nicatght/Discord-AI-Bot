@@ -1,13 +1,32 @@
 /**
  * JSON 儲存服務
+ *
+ * 本地儲存為主，JSONBin.io 為備份（若有設定）。
+ * 寫入時會同步到 JSONBin（非阻塞），確保雲端備份。
+ *
+ * 本地與雲端格式統一：
+ * {
+ *   "hsr": { "discordUserId": "hsrUid", ... },
+ *   "zzz": { },
+ *   "active": true
+ * }
  */
 
 import * as fs from "fs";
 import * as path from "path";
 import { fetchPlayerInfo } from "../services/hsrService";
+import {
+  writeToJsonBin,
+  isJsonBinEnabled,
+  UidData,
+  createEmptyUidData,
+} from "../services/jsonBinService";
 
 // 資料路徑
 const DATA_DIR = path.join(__dirname, "data");
+
+// UID 儲存檔案（本地與雲端格式相同）
+const UID_FILE = "uid.json";
 
 // 確保 data 目錄存在
 if (!fs.existsSync(DATA_DIR)) {
@@ -15,56 +34,77 @@ if (!fs.existsSync(DATA_DIR)) {
 }
 
 /**
- * 讀取 JSON 檔案
+ * 讀取本地 UID 資料
  */
-export function loadJson<T>(filename: string, defaultValue: T): T {
-  const filePath = path.join(DATA_DIR, filename);
+export function loadUidData(): UidData {
+  const filePath = path.join(DATA_DIR, UID_FILE);
 
   try {
     if (fs.existsSync(filePath)) {
       const data = fs.readFileSync(filePath, "utf-8");
-      return JSON.parse(data) as T;
+      const parsed = JSON.parse(data) as UidData;
+      // 確保資料結構正確
+      if (parsed.active) {
+        return parsed;
+      }
     }
   } catch (error) {
-    console.error(`[ERROR] Failed to load ${filename}:`, error);
+    console.error(`[Storage] Failed to load ${UID_FILE}:`, error);
   }
 
-  return defaultValue;
+  return createEmptyUidData();
 }
 
 /**
- * 儲存 JSON 檔案
+ * 儲存本地 UID 資料
  */
-export function saveJson<T>(filename: string, data: T): boolean {
-  const filePath = path.join(DATA_DIR, filename);
+export function saveUidData(data: UidData): boolean {
+  const filePath = path.join(DATA_DIR, UID_FILE);
 
   try {
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
     return true;
   } catch (error) {
-    console.error(`[ERROR] Failed to save ${filename}:`, error);
+    console.error(`[Storage] Failed to save ${UID_FILE}:`, error);
     return false;
   }
 }
 
 /**
- * HSR UID 儲存（Discord User ID -> HSR UID）
+ * 同步資料到雲端（非阻塞）
  */
-const HSR_UID_FILE = "hsr_uids.json";
+function syncToCloud(data: UidData): void {
+  if (!isJsonBinEnabled()) {
+    return;
+  }
+
+  writeToJsonBin(data)
+    .then((success) => {
+      if (success) {
+        console.log("[JSONBin] Data synced successfully");
+      } else {
+        console.warn("[JSONBin] Sync failed, data only saved locally");
+      }
+    })
+    .catch((error) => {
+      console.error("[JSONBin] Sync error:", error);
+    });
+}
+
+// ============================================
+// HSR UID 操作
+// ============================================
 
 /**
  * 取得用戶的 HSR UID
- * @param discordUserId Discord 用戶 ID
- * @returns UID 字串，若無則回傳 null
  */
 export function getHsrUid(discordUserId: string): string | null {
-  const uids = loadJson<Record<string, string>>(HSR_UID_FILE, {});
-  return uids[discordUserId] || null;
+  const data = loadUidData();
+  return data.hsr[discordUserId] || null;
 }
 
 /**
  * 設定 HSR UID（先驗證 UID 是否存在，允許覆蓋舊 UID）
- * @returns { success: true, nickname } 儲存成功，{ success: false, error } 失敗
  */
 export async function setHsrUid(
   discordUserId: string,
@@ -77,11 +117,13 @@ export async function setHsrUid(
     return { success: false, error: "UID 不存在或無法查詢" };
   }
 
-  // 儲存 uid
-  const uids = loadJson<Record<string, string>>(HSR_UID_FILE, {});
-  uids[discordUserId] = hsrUid;
+  // 讀取現有資料
+  const data = loadUidData();
+  data.hsr[discordUserId] = hsrUid;
 
-  if (saveJson(HSR_UID_FILE, uids)) {
+  if (saveUidData(data)) {
+    // 同步到 JSONBin（非阻塞）
+    syncToCloud(data);
     return { success: true, nickname: player.nickname };
   } else {
     return { success: false, error: "儲存失敗" };
@@ -90,23 +132,68 @@ export async function setHsrUid(
 
 /**
  * 刪除 HSR UID
- * @returns true 刪除成功，false 沒有資料可刪除
  */
 export function deleteHsrUid(discordUserId: string): boolean {
-  const uids = loadJson<Record<string, string>>(HSR_UID_FILE, {});
+  const data = loadUidData();
 
-  if (!uids[discordUserId]) {
+  if (!data.hsr[discordUserId]) {
     return false;
   }
 
-  delete uids[discordUserId];
-  return saveJson(HSR_UID_FILE, uids);
+  delete data.hsr[discordUserId];
+  const success = saveUidData(data);
+
+  if (success) {
+    syncToCloud(data);
+  }
+
+  return success;
 }
 
 /**
  * 取得所有 HSR UID 註冊資料
- * @returns { discordUserId: hsrUid } 的 Map
  */
 export function getAllHsrUids(): Record<string, string> {
-  return loadJson<Record<string, string>>(HSR_UID_FILE, {});
+  const data = loadUidData();
+  return data.hsr;
 }
+
+// ============================================
+// 通用 JSON 操作（給其他模組使用）
+// ============================================
+
+/**
+ * 讀取 JSON 檔案（通用）
+ */
+export function loadJson<T>(filename: string, defaultValue: T): T {
+  const filePath = path.join(DATA_DIR, filename);
+
+  try {
+    if (fs.existsSync(filePath)) {
+      const data = fs.readFileSync(filePath, "utf-8");
+      return JSON.parse(data) as T;
+    }
+  } catch (error) {
+    console.error(`[Storage] Failed to load ${filename}:`, error);
+  }
+
+  return defaultValue;
+}
+
+/**
+ * 儲存 JSON 檔案（通用）
+ */
+export function saveJson<T>(filename: string, data: T): boolean {
+  const filePath = path.join(DATA_DIR, filename);
+
+  try {
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
+    return true;
+  } catch (error) {
+    console.error(`[Storage] Failed to save ${filename}:`, error);
+    return false;
+  }
+}
+
+// 匯出檔名常數供其他模組使用
+export { UID_FILE };

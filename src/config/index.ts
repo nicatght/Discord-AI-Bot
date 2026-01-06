@@ -28,6 +28,19 @@ function getConfig() {
         return parseInt(process.env.MAX_CONTEXT_MESSAGES || '30', 10);
       },
     },
+    jsonBin: {
+      // JSONBin.io 設定（選填，若未設定則只使用本地儲存）
+      get apiKey() {
+        return process.env.JSONBIN_API_KEY || '';
+      },
+      get binId() {
+        return process.env.JSONBIN_BIN_ID || '';
+      },
+      // 檢查是否已設定 JSONBin
+      get isEnabled() {
+        return !!(process.env.JSONBIN_API_KEY && process.env.JSONBIN_BIN_ID);
+      },
+    },
   };
 }
 

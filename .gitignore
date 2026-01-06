@@ -8,7 +8,7 @@ dist/
 .env
 
 # Data files
-data/*.json
+data/*
 src/db/data/hsr/
 
 # IDE
