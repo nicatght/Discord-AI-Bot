@@ -94,7 +94,7 @@ function createUidMenu(hasRegistered: boolean) {
   return new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select);
 }
 
-// 刪除確認按鈕
+// 刪除 UID 按鈕介面
 function createDeleteConfirmButtons() {
   const confirm = new ButtonBuilder()
     .setCustomId(BTN_UID_DELETE_CONFIRM)
@@ -469,9 +469,7 @@ async function handleShowcaseCharacterSelect(
       name: `${char.id}_card.png`,
     });
 
-    // 取得請求者在伺服器的顯示名稱
-    // interaction.member 可能是 GuildMember 或 APIInteractionGuildMember
-    // 只有 GuildMember 有 displayName，所以用 nick 作為備用
+    // 取得請求者在伺服器的稱呼
     const member = interaction.member;
     const requesterName = (member && 'displayName' in member)
       ? member.displayName
