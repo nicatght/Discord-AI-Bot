@@ -1,4 +1,8 @@
-// TODO: 实现 RAG 搜索工具（Function Calling）
+/**
+ * RAG 搜尋工具
+ *
+ * TODO: 實作 RAG 搜尋工具（Function Calling）
+ */
 
 export interface SearchToolResult {
   query: string;
@@ -10,7 +14,7 @@ export interface SearchToolResult {
 }
 
 export class SearchTool {
-  // TODO: 实现搜索工具
+  // TODO: 實作搜尋工具
   // - search(query: string): Promise<SearchToolResult>
 }
 

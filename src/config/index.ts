@@ -1,5 +1,5 @@
-// 注意：dotenv 应该在入口文件（bot/index.ts）中加载，这里不再重复加载
-// 使用函数动态读取环境变量，确保在 dotenv.config() 之后读取
+// 注意：dotenv 應該在入口檔案（bot/index.ts）中載入，這裡不再重複載入
+// 使用函數動態讀取環境變數，確保在 dotenv.config() 之後讀取
 
 function getConfig() {
   return {
@@ -44,18 +44,18 @@ function getConfig() {
   };
 }
 
-// 导出配置对象，使用 getter 确保每次访问都读取最新的环境变量
+// 匯出設定物件，使用 getter 確保每次存取都讀取最新的環境變數
 export const config = getConfig();
 
-// 驗證必要的配置（在運行時檢查，而不是模塊加載時）
+// 驗證必要的設定（在執行時檢查，而不是模組載入時）
 export function validateConfig(): void {
   if (!config.discord.token || config.discord.token.trim() === '') {
-    throw new Error('DISCORD_TOKEN 未設置或為空，請檢查 .env 文件中的 DISCORD_TOKEN 是否正確設置');
+    throw new Error('DISCORD_TOKEN 未設置或為空，請檢查 .env 檔案中的 DISCORD_TOKEN 是否正確設置');
   }
 
-  // Gemini API Key 暂时不强制（可以先测试 DC 连接）
+  // Gemini API Key 暫時不強制（可以先測試 DC 連接）
   // if (!config.gemini.apiKey || config.gemini.apiKey.trim() === '') {
-  //   throw new Error('GEMINI_API_KEY 未設置，請檢查 .env 文件');
+  //   throw new Error('GEMINI_API_KEY 未設置，請檢查 .env 檔案');
   // }
 }
 

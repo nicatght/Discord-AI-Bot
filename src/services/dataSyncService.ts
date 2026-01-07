@@ -82,7 +82,7 @@ export async function checkDataSync(client: Client): Promise<boolean> {
   // 1. 確保本地檔案存在
   ensureLocalFileExists();
 
-  // 2. 讀取本地資料（使用 CloudData 格式）
+  // 2. 讀取本地資料（使用 UidData 格式）
   const localData = loadUidData();
 
   // 3. 初始化 JSONBin（確保雲端有初始資料結構）
