@@ -1,0 +1,28 @@
+# ================================================
+# Docker Compose - 本地開發/測試用
+# ================================================
+# 使用方式：
+#   啟動: docker-compose up -d
+#   停止: docker-compose down
+#   查看 log: docker-compose logs -f
+# ================================================
+
+services:
+  bot:
+    build: .
+    container_name: discord-ai-bot
+    restart: unless-stopped
+
+    # .env 檔案（選填，不存在也不會報錯）
+    env_file:
+      - path: .env
+        required: false
+
+    # 環境變數也可透過 docker-compose run -e 或系統環境變數傳入
+    # environment:
+    #   - DISCORD_TOKEN=${DISCORD_TOKEN}
+    #   - DISCORD_GUILD_ID=${DISCORD_GUILD_ID}
+
+    # 資料持久化（選填）
+    volumes:
+      - ./src/db/data:/app/src/db/data
