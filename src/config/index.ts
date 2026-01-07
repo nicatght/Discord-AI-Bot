@@ -15,9 +15,9 @@ function getConfig() {
       get apiKey() {
         return process.env.GEMINI_API_KEY || '';
       },
-      // 2025 最新免費版本：優先使用 Gemini 3 Flash，如果不可用則回退到 1.5 Flash
+      // 免費版推薦：gemini-2.5-flash-lite（最快、最便宜、支援 Google Search）
       get model() {
-        return process.env.GEMINI_MODEL || 'gemini-3-flash-latest';
+        return process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
       },
     },
     bot: {

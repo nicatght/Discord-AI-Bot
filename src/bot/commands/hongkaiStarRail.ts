@@ -23,6 +23,7 @@ import {
 import { fetchPlayerInfo } from "../../services/hsrService";
 import { getHsrUid, setHsrUid, deleteHsrUid, getAllHsrUids } from "../../db";
 import { getCharacterCard } from "../../services/cardGenerator";
+import { searchRedemptionCodes, isGeminiEnabled } from "../../ai/gemini";
 
 // Autocomplete 選項
 const ACTION_CHOICES = [
@@ -140,10 +141,7 @@ export async function execute(
       break;
 
     case "codes":
-      await interaction.reply({
-        content: "兌換碼功能開發中...",
-        flags: MessageFlags.Ephemeral,
-      });
+      await handleCodes(interaction);
       break;
 
     default:
@@ -510,4 +508,44 @@ async function handleShowcaseCharacterSelect(
 
   // 注意：不需要刪除圖片！
   // 圖片存在快取目錄 (data/hsr/<uid>/)，會被重複使用
+}
+
+// 處理兌換碼查詢
+async function handleCodes(
+  interaction: ChatInputCommandInteraction
+): Promise<void> {
+  // 檢查 Gemini API 是否可用
+  if (!isGeminiEnabled()) {
+    await interaction.reply({
+      content: "Gemini API 尚未設定，無法查詢兌換碼。請在 .env 設定 GEMINI_API_KEY",
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  // 先回應，因為搜尋可能需要一些時間
+  await interaction.deferReply();
+
+  try {
+    const result = await searchRedemptionCodes("hsr");
+
+    // 建立 Embed
+    const embed = new EmbedBuilder()
+      .setTitle("Honkai Star Rail Redemption Codes")
+      .setDescription(result)
+      .setColor(0x7b68ee)
+      .setTimestamp()
+      .setFooter({ text: "Powered by Gemini + Google Search" });
+
+    await interaction.editReply({ embeds: [embed] });
+  } catch (error) {
+    console.error("[HSR] Codes search error:", error);
+
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+
+    await interaction.editReply({
+      content: `查詢兌換碼失敗: ${errorMessage}`,
+    });
+  }
 }
