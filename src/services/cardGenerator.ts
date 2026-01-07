@@ -31,11 +31,20 @@ import {
 const PYTHON_DIR = path.join(__dirname, "../../python");
 const PYTHON_SCRIPT = path.join(PYTHON_DIR, "generate_card.py");
 
-// 虛擬環境的 Python 執行檔路徑（Windows）
+// 判斷作業系統
+const isWindows = process.platform === "win32";
+
+// 虛擬環境的 Python 執行檔路徑
 // uv 使用 .venv 目錄，傳統 venv 使用 venv 目錄
 // 優先順序：.venv (uv) -> venv (傳統) -> 系統 python
-const UV_VENV_PYTHON = path.join(PYTHON_DIR, ".venv", "Scripts", "python.exe");
-const VENV_PYTHON = path.join(PYTHON_DIR, "venv", "Scripts", "python.exe");
+// Windows: .venv/Scripts/python.exe
+// Linux/Mac: .venv/bin/python
+const UV_VENV_PYTHON = isWindows
+  ? path.join(PYTHON_DIR, ".venv", "Scripts", "python.exe")
+  : path.join(PYTHON_DIR, ".venv", "bin", "python");
+const VENV_PYTHON = isWindows
+  ? path.join(PYTHON_DIR, "venv", "Scripts", "python.exe")
+  : path.join(PYTHON_DIR, "venv", "bin", "python");
 const PYTHON_EXECUTABLE = fs.existsSync(UV_VENV_PYTHON)
   ? UV_VENV_PYTHON
   : fs.existsSync(VENV_PYTHON)
