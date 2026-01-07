@@ -8,6 +8,5 @@ import { Message } from 'discord.js';
 
 export async function messageHandler(message: Message): Promise<void> {
   // TODO: 實作訊息處理邏輯
-  console.log(`收到訊息: ${message.content}`);
 }
 
