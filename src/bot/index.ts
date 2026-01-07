@@ -5,6 +5,7 @@ import { commands } from "./commands";
 import { config } from "../config";
 import { checkDataSync } from "../services/dataSyncService";
 import { startScheduledBackup } from "../services/scheduledBackup";
+import { isJsonBinEnabled } from "../services/jsonBinService";
 
 // 建立 Discord client
 const client = new Client({
@@ -17,6 +18,11 @@ const client = new Client({
 
 client.once("clientReady", () => {
   console.log(`啟動成功 以${client.user?.tag}登入`);
+
+  // 顯示功能啟用狀態
+  console.log("[INFO] 功能狀態:");
+  console.log(`  - Gemini API: ${config.gemini.apiKey ? "已啟用" : "未設定"}`);
+  console.log(`  - JSONBin 雲端備份: ${isJsonBinEnabled() ? "已啟用" : "未設定"}`);
 });
 
 client.on("error", (error) => {
