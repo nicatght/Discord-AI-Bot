@@ -10,6 +10,7 @@
 services:
   bot:
     build: .
+    image: discord-ai-bot
     container_name: discord-ai-bot
     restart: unless-stopped
 
