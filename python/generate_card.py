@@ -32,9 +32,28 @@ import argparse
 import json
 import starrailcard
 
-# Windows 中文字體路徑
-# Microsoft JhengHei (微軟正黑體) 支援繁體中文
-CHINESE_FONT_PATH = "C:/Windows/Fonts/msjh.ttc"
+# 中文字體路徑（依優先順序嘗試）
+# Windows: Microsoft JhengHei (微軟正黑體)
+# Linux/Docker: Noto Sans CJK (Google 開源中日韓字型)
+FONT_PATHS = [
+    # Windows
+    "C:/Windows/Fonts/msjh.ttc",           # Microsoft JhengHei
+    "C:/Windows/Fonts/msyh.ttc",           # Microsoft YaHei
+    # Linux (Alpine apk: font-noto-cjk)
+    "/usr/share/fonts/noto/NotoSansCJK-Regular.ttc",
+    "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",
+    # Linux (Debian/Ubuntu apt: fonts-noto-cjk)
+    "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+    "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+]
+
+
+def get_chinese_font_path():
+    """Find the first available Chinese font path."""
+    for path in FONT_PATHS:
+        if os.path.exists(path):
+            return path
+    return None
 
 
 async def generate_all_cards(uid: str, output_dir: str, lang: str = "cht", template: int = 2):
@@ -63,8 +82,9 @@ async def generate_all_cards(uid: str, output_dir: str, lang: str = "cht", templ
         async with starrailcard.Card(lang=lang) as card:
             # Set Chinese font to fix garbled text
             # Must be called before card.create()
-            if os.path.exists(CHINESE_FONT_PATH):
-                await card.set_user_font(CHINESE_FONT_PATH)
+            font_path = get_chinese_font_path()
+            if font_path:
+                await card.set_user_font(font_path)
 
             # Generate cards for all showcase characters
             result = await card.create(uid, style=template)

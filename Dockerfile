@@ -35,12 +35,18 @@ WORKDIR /app
 # 安裝系統依賴
 # - python3: Python 執行環境
 # - gcc, musl-dev, python3-dev: 編譯 Python C 擴展（如 Pillow）
+# - fontconfig, ttf-dejavu: 字型支援
+# - font-noto-cjk: 中日韓文字型（支援繁體中文）
 RUN apk add --no-cache \
     python3 \
     gcc \
     musl-dev \
-    python3-dev && \
-    wget -qO- https://astral.sh/uv/install.sh | sh
+    python3-dev \
+    fontconfig \
+    ttf-dejavu \
+    font-noto-cjk && \
+    wget -qO- https://astral.sh/uv/install.sh | sh && \
+    fc-cache -fv
 
 # 將 uv 加入 PATH
 ENV PATH="/root/.local/bin:$PATH"
