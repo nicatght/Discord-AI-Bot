@@ -32,8 +32,14 @@ FROM node:20-alpine AS production
 
 WORKDIR /app
 
-# 安裝 Python 和 uv（用於生成角色卡片）
-RUN apk add --no-cache python3 && \
+# 安裝系統依賴
+# - python3: Python 執行環境
+# - gcc, musl-dev, python3-dev: 編譯 Python C 擴展（如 Pillow）
+RUN apk add --no-cache \
+    python3 \
+    gcc \
+    musl-dev \
+    python3-dev && \
     wget -qO- https://astral.sh/uv/install.sh | sh
 
 # 將 uv 加入 PATH
@@ -53,7 +59,7 @@ COPY python/ ./python/
 
 # 使用 uv sync 安裝 Python 依賴（根據 pyproject.toml）
 WORKDIR /app/python
-RUN uv sync
+RUN uv sync --no-dev
 
 WORKDIR /app
 
