@@ -540,11 +540,11 @@ async function handleCodes(
 
     // 建立 Embed
     const embed = new EmbedBuilder()
-      .setTitle("Honkai Star Rail Redemption Codes")
+      .setTitle("崩鐵最新兌換碼")
       .setDescription(result)
       .setColor(0x7b68ee)
       .setTimestamp()
-      .setFooter({ text: "Powered by Gemini + Google Search" });
+      .setFooter({ text: "Powered by Gemini + Google Search | AI 可能會出錯" });
 
     await interaction.editReply({ embeds: [embed] });
   } catch (error) {
