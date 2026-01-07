@@ -445,30 +445,51 @@ async function handleShowcaseCharacterSelect(
     components: [],
   });
 
-  // 取得角色卡片（含快取機制）
-  // getCharacterCard 會：
-  // 1. 檢查快取是否需要更新（比對 hash）
-  // 2. 如果需要，批次生成所有展櫃角色卡片
-  // 3. 回傳指定角色的卡片路徑
-  //
-  // 快取優點：
-  // - 第一次查詢會生成所有角色，之後直接使用快取
-  // - 只有角色配置改變時才會重新生成
-  const cardResult = await getCharacterCard(
-    player.uid,
-    char.id,
-    player.characters // 傳入所有角色資料，用於快取比對
-  );
+  try {
+    // 取得角色卡片（含快取機制）
+    const cardResult = await getCharacterCard(
+      player.uid,
+      char.id,
+      player.characters
+    );
 
-  if (!cardResult.success || !cardResult.filePath) {
-    // 卡片生成失敗，改用 fallback（原本的 embed 方式）
-    console.error(`[HSR] Card generation failed: ${cardResult.error}`);
+    if (!cardResult.success || !cardResult.filePath) {
+      // 卡片生成失敗，改用 fallback
+      console.error(`[HSR] Card generation failed: ${cardResult.error}`);
+      await showFallbackEmbed(interaction, player, char);
+      return;
+    }
 
+    // 卡片取得成功
+    await interaction.editReply({
+      content: `**${char.name}** 的角色卡片`,
+    });
+
+    const attachment = new AttachmentBuilder(cardResult.filePath, {
+      name: `${char.id}_card.png`,
+    });
+
+    await interaction.followUp({
+      files: [attachment],
+    });
+  } catch (error) {
+    // 捕捉所有未預期的錯誤，避免 crash
+    console.error(`[HSR] Unexpected error in card generation:`, error);
+    await showFallbackEmbed(interaction, player, char);
+  }
+}
+
+// Fallback: 使用 embed 顯示基本資訊
+async function showFallbackEmbed(
+  interaction: StringSelectMenuInteraction,
+  player: NonNullable<Awaited<ReturnType<typeof fetchPlayerInfo>>>,
+  char: NonNullable<Awaited<ReturnType<typeof fetchPlayerInfo>>>["characters"][number]
+): Promise<void> {
+  try {
     await interaction.editReply({
       content: `卡片生成失敗，使用簡易模式顯示`,
     });
 
-    // Fallback: 使用 embed 顯示基本資訊
     const embed = new EmbedBuilder()
       .setTitle(char.name)
       .setDescription(`${player.nickname} 的展示角色`)
@@ -478,7 +499,6 @@ async function handleShowcaseCharacterSelect(
       .setFooter({ text: "Data from MiHoMo API" });
 
     if (char.lightCone) {
-      // lightCone 現在是物件，顯示 ID 和等級
       embed.addFields({
         name: "光錐",
         value: `ID: ${char.lightCone.id} (Lv.${char.lightCone.level})`,
@@ -487,27 +507,9 @@ async function handleShowcaseCharacterSelect(
     }
 
     await interaction.followUp({ embeds: [embed] });
-    return;
+  } catch (fallbackError) {
+    console.error(`[HSR] Fallback embed also failed:`, fallbackError);
   }
-
-  // 卡片取得成功
-  await interaction.editReply({
-    content: `**${char.name}** 的角色卡片`,
-  });
-
-  // 使用 AttachmentBuilder 將圖片檔案作為附件發送
-  // AttachmentBuilder 可以從檔案路徑建立附件
-  const attachment = new AttachmentBuilder(cardResult.filePath, {
-    name: `${char.id}_card.png`, // 使用角色 ID 作為檔名，避免中文編碼問題
-  });
-
-  // 公開發送卡片圖片
-  await interaction.followUp({
-    files: [attachment],
-  });
-
-  // 注意：不需要刪除圖片！
-  // 圖片存在快取目錄 (data/hsr/<uid>/)，會被重複使用
 }
 
 // 處理兌換碼查詢
