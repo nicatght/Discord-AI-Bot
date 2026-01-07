@@ -58,7 +58,11 @@ export function startScheduledBackup(): void {
     return;
   }
 
-  console.log("[Backup] Starting backup scheduler (every 6 hours)");
+  const intervalHours = getBackupIntervalHours();
+  const intervalText = intervalHours >= 1
+    ? `${intervalHours} hours`
+    : `${Math.round(BACKUP_INTERVAL_MS / 1000)} seconds`;
+  console.log(`[Backup] Starting backup scheduler (every ${intervalText})`);
 
   // 設定定時器
   backupTimer = setInterval(() => {
