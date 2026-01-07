@@ -469,7 +469,16 @@ async function handleShowcaseCharacterSelect(
       name: `${char.id}_card.png`,
     });
 
+    // 取得請求者在伺服器的顯示名稱
+    // interaction.member 可能是 GuildMember 或 APIInteractionGuildMember
+    // 只有 GuildMember 有 displayName，所以用 nick 作為備用
+    const member = interaction.member;
+    const requesterName = (member && 'displayName' in member)
+      ? member.displayName
+      : (member?.nick || interaction.user.displayName);
+
     await interaction.followUp({
+      content: `by ${requesterName}`,
       files: [attachment],
     });
   } catch (error) {
