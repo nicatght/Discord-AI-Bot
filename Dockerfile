@@ -51,10 +51,9 @@ COPY --from=builder /app/dist ./dist
 # 複製 Python 腳本
 COPY python/ ./python/
 
-# 使用 uv 安裝 Python 依賴（比 pip 快 10-100 倍）
+# 使用 uv sync 安裝 Python 依賴（根據 pyproject.toml）
 WORKDIR /app/python
-RUN uv venv .venv && \
-    uv pip install --no-cache starrailcard
+RUN uv sync
 
 WORKDIR /app
 
