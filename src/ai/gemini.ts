@@ -211,12 +211,12 @@ export async function searchRedemptionCodes(
 
   const prompt = `現在時間：${currentDate}
 
-請搜尋 ${gameName} 最新的兌換碼 (redemption codes / redeem codes)。
+請搜尋 ${gameName} 最新的兌換碼 (redemption codes / redeem codes)以及其發布日期 (消息出現的時間)。
 
 要求：
 1. 只列出目前仍然有效、可以使用的兌換碼 **只要兌換碼有顯示 "已過期" 則不要回傳**
 2. 只回傳對「國際服」有效的兌換碼（排除僅限國服/中國服的兌換碼）
-3. 只回傳官方在最近 7 天內發布的兌換碼（DO NOT return code that is released before 7 days ago.）
+3. 只回傳發布日期在最近 7 天內的兌換碼（DO NOT return code that is released before 7 days ago.）
 4. 回傳的兌換碼**必須**符合以上3點要求
 5. 如果有到期日期請標註
 6. 用繁體中文回答
