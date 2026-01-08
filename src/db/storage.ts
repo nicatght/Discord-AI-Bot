@@ -14,7 +14,7 @@
 
 import * as fs from "fs";
 import * as path from "path";
-import { fetchPlayerInfo } from "../services/hsrService";
+import { fetchPlayerInfo } from "../games/hsr/service";
 import {
   UidData,
   createEmptyUidData,

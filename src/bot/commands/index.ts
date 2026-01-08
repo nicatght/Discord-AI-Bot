@@ -1,6 +1,7 @@
 import { Collection, ChatInputCommandInteraction, SlashCommandBuilder, SlashCommandSubcommandsOnlyBuilder, SlashCommandOptionsOnlyBuilder } from "discord.js";
 import * as ping from "./ping";
-import * as hsr from "./hongkaiStarRail";
+import * as hsr from "../../games/hsr/commands";
+import * as zzz from "../../games/zzz/commands";
 
 // 指令介面（支援一般指令、含子指令的指令、含選項的指令）
 export interface Command {
@@ -14,3 +15,4 @@ export const commands = new Collection<string, Command>();
 // 註冊所有指令
 commands.set(ping.data.name, ping);
 commands.set(hsr.data.name, hsr);
+commands.set(zzz.data.name, zzz);

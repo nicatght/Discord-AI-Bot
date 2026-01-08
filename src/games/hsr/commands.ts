@@ -20,9 +20,9 @@ import {
   MessageFlags,
   AttachmentBuilder,
 } from "discord.js";
-import { fetchPlayerInfo } from "../../services/hsrService";
+import { fetchPlayerInfo } from "./service";
 import { getHsrUid, setHsrUid, deleteHsrUid, getAllHsrUids } from "../../db";
-import { getCharacterCard } from "../../services/cardGenerator";
+import { getCharacterCard } from "./cardGenerator";
 import { searchRedemptionCodes, isGeminiEnabled } from "../../ai/gemini";
 
 // Autocomplete 選項

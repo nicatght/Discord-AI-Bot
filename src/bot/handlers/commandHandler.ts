@@ -1,6 +1,6 @@
 import { Interaction, MessageFlags } from "discord.js";
 import { commands } from "../commands";
-import * as hsrCommand from "../commands/hongkaiStarRail";
+import * as hsrCommand from "../../games/hsr/commands";
 
 export async function commandHandler(interaction: Interaction): Promise<void> {
   try {

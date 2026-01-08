@@ -18,33 +18,34 @@
 import { spawn } from "child_process";
 import * as path from "path";
 import * as fs from "fs";
-import { HsrCharacter } from "./hsrService";
+import { HsrCharacter } from "./service";
 import {
   anyNeedsRegeneration,
   clearCardImages,
   updateCache,
   getCardImagePath,
   getCacheDirectory,
-} from "./hsrCardCache";
+} from "./cardCache";
 
 // Python 相關路徑
-const PYTHON_DIR = path.join(__dirname, "../../python");
-const PYTHON_SCRIPT = path.join(PYTHON_DIR, "generate_card.py");
+// pyproject.toml 和 .venv 在專案根目錄
+const PROJECT_ROOT = path.join(__dirname, "../../..");
+const PYTHON_SCRIPT = path.join(__dirname, "generate_card.py");
 
 // 判斷作業系統
 const isWindows = process.platform === "win32";
 
 // 虛擬環境的 Python 執行檔路徑
-// uv 使用 .venv 目錄，傳統 venv 使用 venv 目錄
+// pyproject.toml 和 .venv 在專案根目錄
 // 優先順序：.venv (uv) -> venv (傳統) -> 系統 python
 // Windows: .venv/Scripts/python.exe
 // Linux/Mac: .venv/bin/python
 const UV_VENV_PYTHON = isWindows
-  ? path.join(PYTHON_DIR, ".venv", "Scripts", "python.exe")
-  : path.join(PYTHON_DIR, ".venv", "bin", "python");
+  ? path.join(PROJECT_ROOT, ".venv", "Scripts", "python.exe")
+  : path.join(PROJECT_ROOT, ".venv", "bin", "python");
 const VENV_PYTHON = isWindows
-  ? path.join(PYTHON_DIR, "venv", "Scripts", "python.exe")
-  : path.join(PYTHON_DIR, "venv", "bin", "python");
+  ? path.join(PROJECT_ROOT, "venv", "Scripts", "python.exe")
+  : path.join(PROJECT_ROOT, "venv", "bin", "python");
 const PYTHON_EXECUTABLE = fs.existsSync(UV_VENV_PYTHON)
   ? UV_VENV_PYTHON
   : fs.existsSync(VENV_PYTHON)
