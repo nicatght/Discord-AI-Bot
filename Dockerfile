@@ -60,14 +60,14 @@ RUN npm ci --only=production
 # 從 builder 階段複製編譯後的程式碼
 COPY --from=builder /app/dist ./dist
 
-# 複製 Python 腳本
-COPY python/ ./python/
+# 複製 Python 腳本（TypeScript 編譯不會複製 .py 檔案）
+COPY src/games/hsr/generate_card.py ./dist/games/hsr/
 
-# 使用 uv sync 安裝 Python 依賴（根據 pyproject.toml）
-WORKDIR /app/python
+# 複製 Python 相關檔案（pyproject.toml 和 uv.lock 在根目錄）
+COPY pyproject.toml uv.lock ./
+
+# 使用 uv sync 安裝 Python 依賴
 RUN uv sync --no-dev
-
-WORKDIR /app
 
 # 建立資料目錄
 RUN mkdir -p src/db/data
