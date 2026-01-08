@@ -1,6 +1,7 @@
 import { Interaction, MessageFlags } from "discord.js";
 import { commands } from "../commands";
 import * as hsrCommand from "../../games/hsr/commands";
+import * as zzzCommand from "../../games/zzz/commands";
 
 export async function commandHandler(interaction: Interaction): Promise<void> {
   try {
@@ -8,6 +9,8 @@ export async function commandHandler(interaction: Interaction): Promise<void> {
     if (interaction.isAutocomplete()) {
       if (interaction.commandName === "honkai-star-rail") {
         await hsrCommand.autocomplete(interaction);
+      } else if (interaction.commandName === "zenless-zone-zero") {
+        await zzzCommand.autocomplete(interaction);
       }
       return;
     }
@@ -29,6 +32,8 @@ export async function commandHandler(interaction: Interaction): Promise<void> {
     if (interaction.isStringSelectMenu()) {
       if (interaction.customId.startsWith("hsr_")) {
         await hsrCommand.handleSelectMenu(interaction);
+      } else if (interaction.customId.startsWith("zzz_")) {
+        await zzzCommand.handleSelectMenu(interaction);
       }
       return;
     }
@@ -37,6 +42,8 @@ export async function commandHandler(interaction: Interaction): Promise<void> {
     if (interaction.isModalSubmit()) {
       if (interaction.customId.startsWith("hsr_")) {
         await hsrCommand.handleModalSubmit(interaction);
+      } else if (interaction.customId.startsWith("zzz_")) {
+        await zzzCommand.handleModalSubmit(interaction);
       }
       return;
     }
@@ -45,6 +52,8 @@ export async function commandHandler(interaction: Interaction): Promise<void> {
     if (interaction.isButton()) {
       if (interaction.customId.startsWith("hsr_")) {
         await hsrCommand.handleButton(interaction);
+      } else if (interaction.customId.startsWith("zzz_")) {
+        await zzzCommand.handleButton(interaction);
       }
       return;
     }

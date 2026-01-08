@@ -129,6 +129,68 @@ export function getAllHsrUids(): Record<string, string> {
 }
 
 // ============================================
+// ZZZ UID 操作
+// ============================================
+
+/**
+ * 取得用戶的 ZZZ UID
+ */
+export function getZzzUid(discordUserId: string): string | null {
+  const data = loadUidData();
+  return data.zzz[discordUserId] || null;
+}
+
+/**
+ * 設定 ZZZ UID（先驗證 UID 是否存在）
+ */
+export async function setZzzUid(
+  discordUserId: string,
+  zzzUid: string
+): Promise<{ success: boolean; nickname?: string; error?: string }> {
+  // 動態載入避免循環依賴
+  const { fetchPlayerShowcase } = await import("../games/zzz/service");
+
+  // 驗證 UID 是否有效
+  const result = await fetchPlayerShowcase(zzzUid);
+
+  if (!result.success || !result.data) {
+    return { success: false, error: result.error || "UID 不存在或無法查詢" };
+  }
+
+  // 讀取現有資料
+  const data = loadUidData();
+  data.zzz[discordUserId] = zzzUid;
+
+  if (saveUidData(data)) {
+    return { success: true, nickname: result.data.player.nickname };
+  } else {
+    return { success: false, error: "儲存失敗" };
+  }
+}
+
+/**
+ * 刪除 ZZZ UID
+ */
+export function deleteZzzUid(discordUserId: string): boolean {
+  const data = loadUidData();
+
+  if (!data.zzz[discordUserId]) {
+    return false;
+  }
+
+  delete data.zzz[discordUserId];
+  return saveUidData(data);
+}
+
+/**
+ * 取得所有 ZZZ UID 註冊資料
+ */
+export function getAllZzzUids(): Record<string, string> {
+  const data = loadUidData();
+  return data.zzz;
+}
+
+// ============================================
 // 通用 JSON 操作（給其他模組使用）
 // ============================================
 

@@ -62,6 +62,7 @@ COPY --from=builder /app/dist ./dist
 
 # 複製 Python 腳本（TypeScript 編譯不會複製 .py 檔案）
 COPY src/games/hsr/generate_card.py ./dist/games/hsr/
+COPY src/games/zzz/fetch_profile.py ./dist/games/zzz/
 
 # 複製 Python 相關檔案（pyproject.toml 和 uv.lock 在根目錄）
 COPY pyproject.toml uv.lock ./
